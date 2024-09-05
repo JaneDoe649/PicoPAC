@@ -22,9 +22,7 @@
 #define __FATFS_DISK_H__
 
 #include "flash_fs.h"
-
-#define SECTOR_NUM 30716 //2044 //1800
-#define SECTOR_SIZE 512
+#include "device_flash.h"
 
 void create_fatfs_disk();
 bool mount_fatfs_disk();

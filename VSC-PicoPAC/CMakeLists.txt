@@ -1,3 +1,14 @@
+# == DO NEVER EDIT THE NEXT LINES for Raspberry Pi Pico VS Code Extension to work ==
+if(WIN32)
+    set(USERHOME $ENV{USERPROFILE})
+else()
+    set(USERHOME $ENV{HOME})
+endif()
+set(sdkVersion 2.0.0)
+set(toolchainVersion 13_2_Rel1)
+set(picotoolVersion 2.0.0)
+include(${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
+# ====================================================================================
 cmake_minimum_required(VERSION 3.13)
 
 # initialize the SDK based on PICO_SDK_PATH
@@ -5,6 +16,9 @@ cmake_minimum_required(VERSION 3.13)
 include(pico_sdk_import.cmake)
 
 project(PicoPAC_cart)
+
+# release build
+set(CMAKE_BUILD_TYPE "Release")
 
 set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}) 
 set(PICO_BOARD myboard)
@@ -16,7 +30,10 @@ add_executable(PicoPAC_cart)
 
 # 16megs of flash on purple pico clones
 target_compile_definitions(PicoPAC_cart PRIVATE
-    PICO_FLASH_SIZE_BYTES=16777216
+# 16megs of flash on purple pico clones
+    #PICO_FLASH_SIZE_BYTES=16777216
+# 8megs of flash on purple pico clones
+PICO_FLASH_SIZE_BYTES=8388608
 )
 
 target_compile_options(PicoPAC_cart PRIVATE "-Os")
@@ -42,7 +59,7 @@ target_include_directories(PicoPAC_cart PUBLIC
 
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(PicoPAC_cart 1)
-pico_enable_stdio_uart(PicoPAC_cart 0)
+pico_enable_stdio_uart(PicoPAC_cart 0) #0 in final release, 1 for debug probe
 
 # In addition to pico_stdlib required for common PicoSDK functionality, add dependency on tinyusb_device
 # for TinyUSB device support

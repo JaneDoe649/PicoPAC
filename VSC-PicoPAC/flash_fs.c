@@ -24,16 +24,9 @@
 #include <string.h>
 
 #include "flash_fs.h"
+#include "device_flash.h"
 
-// Implements 512 byte FAT sectors on 4096 byte flash sectors.
-// Doesn't really implement wear levelling (e.g. the fs_map) so not for heavy use but should be
-// fine for the intended use case.
-
-#define HW_FLASH_STORAGE_BASE  (1024 * 1024)
 #define MAGIC_8_BYTES "RHE!FS30"
-
-#define NUM_FAT_SECTORS 30716   // 15megs / 512bytes = 30720, but we used 4 records for the header (8 bytes)
-#define NUM_FLASH_SECTORS 3840  // 15megs / 4096bytes = 3840
  
 typedef struct {
     uint8_t header[8];

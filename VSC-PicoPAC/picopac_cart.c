@@ -15,6 +15,7 @@
 //
 */
 
+//#define debugging
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,6 +35,8 @@
 #include "tusb.h"
 #include "ff.h"
 #include "fatfs_disk.h"
+#include <sys/types.h>
+#include "hardware/clocks.h"
 
 // Pico pin usage definitions
 
@@ -519,6 +522,9 @@ int load_file(char *filename) {
         	if (f_read(&fil,&rom_table[i][1024], 2048, &br)!= FR_OK) {
 				error(3);
 			}
+			#ifdef debugging
+				debugFS(&rom_table[i][1024]);
+			#endif
 			k=k+1;
         	memcpy(&rom_table[i][3072], &rom_table[i][2048], 1024); /* simulate missing A10 */
     	}
@@ -542,16 +548,24 @@ int load_newfile(char *filename) {
     int l,nb;
     int k=0;
 
+	char fullpath[35];
+	fullpath[0]= '/';
+	fullpath[1] = filename[0];
+	fullpath[2]= '/';
+	fullpath[3] = 0;
+
+	strcat(fullpath, filename);
+
 	memset(new_rom_table,0,1024*8*4);
 	
-	l=filesize(filename);
+	l=filesize(fullpath); //fullpath
 	
 	if (f_mount(&FatFs, "", 1) != FR_OK) {
 		error(1);
 	}
 
 	FIL fil;
-	if (f_open(&fil, filename, FA_READ) != FR_OK) {
+	if (f_open(&fil, fullpath, FA_READ) != FR_OK) { //fullpath
 		error(2);
 	}
     
@@ -575,6 +589,9 @@ int load_newfile(char *filename) {
         	if (f_read(&fil,&new_rom_table[i][1024], 2048, &br)!= FR_OK) {
 				error(3);
 			}
+			#ifdef debugging
+				debugFS(&new_rom_table[i][1024]);
+			#endif
 			k=k+1;
         	memcpy(&new_rom_table[i][3072], &new_rom_table[i][2048], 1024); /* simulate missing A10 */
     	}
@@ -628,6 +645,10 @@ void picopac_cart_main()
 
    load_file("/selectgame.bin");
    //load_file("/pb_q-bert.bin");
+   #ifdef debugging
+   printf("---- %s ----\n\r", gamelist[0]);
+   load_newfile(gamelist[0]);
+   #endif
    
   memset(extram,0,0xff);
   //load_file("/vp_38.bin");
@@ -652,5 +673,14 @@ void picopac_cart_main()
    }
   }
 }
-
- 	
+#ifdef debugging
+void debugFS(unsigned char *array) {
+	for(int i=0; i<64; i++) {
+		printf("%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n\r",
+		array[0 + 32*i], array[1 + 32*i], array[2 + 32*i], array[3 + 32*i], array[4 + 32*i], array[5 + 32*i], array[6 + 32*i], array[7 + 32*i], 
+		array[8 + 32*i], array[9 + 32*i], array[10 + 32*i], array[11 + 32*i], array[12 + 32*i], array[13 + 32*i], array[14 + 32*i], array[15 + 32*i], 
+		array[16 + 32*i], array[17 + 32*i], array[18 + 32*i], array[19 + 32*i], array[20 + 32*i], array[21 + 32*i], array[22 + 32*i], array[23 + 32*i],
+		array[24 + 32*i], array[25 + 32*i], array[26 + 32*i], array[27 + 32*i], array[28 + 32*i], array[29 + 32*i], array[30 + 32*i], array[31 + 32*i]);
+	}
+} 	
+#endif
