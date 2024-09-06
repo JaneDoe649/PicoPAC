@@ -6,7 +6,7 @@ Since now, tested only on a G7400 (so i didn't test the exROM games too), but i'
 
 PicoPAC is a multicart DIY yourself based on cheap "PURPLE" Raspberry Pi Pico clone, easy to build and not expensive.
 **WARNING!** "purple" Pico has not the same pinout of original Raspberry "green" ones, you MUST use the clone or you may damage your hardware. 
-**Several pinouts exist depending on the clone manufacturer. TThe pinout corresponding to the PCB is as follows :**
+**Several pinouts exist depending on the clone manufacturer. The pinout corresponding to the PCB is as follows :**
 ![ScreenShot](https://raw.githubusercontent.com/JaneDoe649/PicoPAC/develop/pictures/PurpleClonePinout.jpg)
 
 **NOTE** filename are "fixed" and hardcoded in firmware to match the "selectgame.bin" menu. You should find all the ROM with matching filenames following this site https://rene-g7400.datatex.nl/ 

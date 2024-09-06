@@ -24,6 +24,6 @@
 #define PSEN_PIN 22
 
 
-void picopac_cart_main();
+
 
 #endif

@@ -28,7 +28,7 @@
 #include "fatfs_disk.h"
 
 //void cdc_task(void);
-// #define debugging
+ #define debugging
 
 //--------------------------------------------------------------------+
 // USB CDC

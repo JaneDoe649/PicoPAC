@@ -15,7 +15,8 @@
 //
 */
 
-//#define debugging
+#define debugging
+#define maxfiles 200
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +38,8 @@
 #include "fatfs_disk.h"
 #include <sys/types.h>
 #include "hardware/clocks.h"
+
+#include "translate.c"
 
 // Pico pin usage definitions
 
@@ -113,6 +116,12 @@
 #define SET_LED_ON    	gpio_init(PICO_DEFAULT_LED_PIN);(PICO_DEFAULT_LED_PIN,GPIO_OUT);gpio_put(PICO_DEFAULT_LED_PIN,true);
 #define SET_LED_OFF    	gpio_init(PICO_DEFAULT_LED_PIN);gpio_set_dir(PICO_DEFAULT_LED_PIN,GPIO_OUT);gpio_put(PICO_DEFAULT_LED_PIN,false);
 
+ void picopac_cart_main();
+ void updaterom(unsigned char *m, int memblock);
+ #ifdef debugging
+ void debugFS(unsigned char *array);
+ #endif
+
 // We're going to erase and reprogram a region 256k from the start of flash.
 // Once done, we can access this at XIP_BASE + 256k.
 
@@ -123,10 +132,11 @@ unsigned char rom_table[8][4096];
 unsigned char new_rom_table[8][4096];
 unsigned char extROM[1024];
 unsigned char RAM[1024];
-unsigned char files[256*100] = {0};
-unsigned char nomefiles[32*25] = {0};
-char curPath[256] = "";
-char path[256];
+//unsigned char files[256*100] = {0};
+
+// unsigned char nomefiles[32*25] = {0};
+char curPath[5] = "";
+char path[5];
 int fileda=0,filea=0;
 volatile char cmd=0;
 char errorBuf[40];
@@ -328,10 +338,12 @@ void reset() {
 
 typedef struct {
 	char isDir;
-	char filename[13];
+	// char filename[13];
 	char long_filename[32];
-	char full_path[210];
+	char full_path[5];
 } DIR_ENTRY;	// 256 bytes = 256 entries in 64k
+
+DIR_ENTRY files[maxfiles];
 
 int num_dir_entries = 0; // how many entries in the current directory
 
@@ -381,6 +393,15 @@ int scan_files(char *path, char *search)
     DIR dir;
     UINT i;
 
+
+    if (!fatfs_is_mounted())
+       mount_fatfs_disk();
+
+	FATFS FatFs;
+	if (f_mount(&FatFs, "", 1) != FR_OK) {
+		return -1;
+	}	
+
 	res = f_opendir(&dir, path);
 	if (res == FR_OK) {
 		for (;;) {
@@ -395,6 +416,7 @@ int scan_files(char *path, char *search)
 					strcat(path, fno.altname);
 				else
 					strcat(path, fno.fname);
+				printf("%s\n", path);
 				if (strlen(path) >= 210) continue;	// no more room for path in DIR_ENTRY
 				res = scan_files(path, search);
 				if (res != FR_OK) break;
@@ -411,15 +433,72 @@ int scan_files(char *path, char *search)
 					strncpy(dst->long_filename, fno.fname, 31);
 					dst->long_filename[31] = 0;
 					// 8.3 name
-					if (fno.altname[0])
+					/*if (fno.altname[0])
 						strcpy(dst->filename, fno.altname);
 					else {	// no altname when lfn is 8.3
 						strncpy(dst->filename, fno.fname, 12);
 						dst->filename[12] = 0;
-					}
+					}*/
 					// full path for search results
 					strcpy(dst->full_path, path);
+					printf("%s\n",dst->full_path);
+					num_dir_entries++;
+				}
+			}
+		}
+		f_closedir(&dir);
+	}
+	return res;
+}
 
+int tree(char *path)
+{
+    FRESULT res;
+    DIR dir;
+    UINT i;
+
+	res = f_opendir(&dir, path);
+	if (res == FR_OK) {
+		for (;;) {
+			if (num_dir_entries == maxfiles) break;
+			res = f_readdir(&dir, &fno);
+			if (res != FR_OK || fno.fname[0] == 0) return FR_OK; //break;
+			if (fno.fattrib & (AM_HID | AM_SYS)) continue;
+			if (fno.fattrib & AM_DIR) {
+				char localpath[40];
+				strcpy(localpath, path);
+				i = strlen(path);
+				if (i>1)
+					strcat(localpath, "/");
+				if (fno.altname[0])	// no altname when lfn is 8.3
+					strcat(localpath, fno.altname);
+				else
+					strcat(localpath, fno.fname);
+				// if (strlen(localpath) >= 210) continue;	// no more room for path in DIR_ENTRY
+				res = tree(localpath);
+				if (res != FR_OK) break;
+				//path[i] = 0;
+			}
+			else if (is_valid_file(fno.fname))
+			{
+				
+				if (1 == 1) {
+					//DIR_ENTRY *dst = (DIR_ENTRY *)&files[0];
+					DIR_ENTRY *dst = &files[num_dir_entries];
+					//dst += num_dir_entries;
+					// fill out a record
+					strncpy(dst->long_filename, fno.fname, 31);
+					dst->long_filename[31] = 0;
+					// 8.3 name
+					/*if (fno.altname[0])
+						strcpy(dst->filename, fno.altname);
+					else {	// no altname when lfn is 8.3
+						strncpy(dst->filename, fno.fname, 12);
+						dst->filename[12] = 0;
+					}*/
+					// full path for search results
+					strcpy(dst->full_path, path);
+					printf("%s/%s\n",dst->full_path, dst->long_filename);
 					num_dir_entries++;
 				}
 			}
@@ -494,11 +573,9 @@ int load_file(char *filename) {
     int l,nb;
     int k=0;
 
-			memset(rom_table,0,1024*8*4);
+	memset(rom_table,0,1024*8*4);
 	
 	l=filesize(filename);
-	
-    
 	
 	if (f_mount(&FatFs, "", 1) != FR_OK) {
 		error(1);
@@ -522,6 +599,8 @@ int load_file(char *filename) {
         	if (f_read(&fil,&rom_table[i][1024], 2048, &br)!= FR_OK) {
 				error(3);
 			}
+			// update rom with files on SD
+			updaterom(&rom_table[i][1024], i);
 			#ifdef debugging
 				debugFS(&rom_table[i][1024]);
 			#endif
@@ -590,7 +669,7 @@ int load_newfile(char *filename) {
 				error(3);
 			}
 			#ifdef debugging
-				debugFS(&new_rom_table[i][1024]);
+				//debugFS(&new_rom_table[i][1024]);
 			#endif
 			k=k+1;
         	memcpy(&new_rom_table[i][3072], &new_rom_table[i][2048], 1024); /* simulate missing A10 */
@@ -643,11 +722,22 @@ void picopac_cart_main()
   multicore_launch_core1(core1_main);
   sleep_ms(200);
 
+// get files on SD
+  if (!fatfs_is_mounted())
+    mount_fatfs_disk();
+
+	FATFS FatFs;
+	if (f_mount(&FatFs, "", 1) != FR_OK) {
+		return;
+	}	
+	tree("/");
+
+
    load_file("/selectgame.bin");
    //load_file("/pb_q-bert.bin");
    #ifdef debugging
-   printf("---- %s ----\n\r", gamelist[0]);
-   load_newfile(gamelist[0]);
+   // printf("---- %s ----\n\r", gamelist[0]);
+   // load_newfile(gamelist[0]);
    #endif
    
   memset(extram,0,0xff);
@@ -664,7 +754,8 @@ void picopac_cart_main()
 
 	sleep_ms(1800);
 
-	load_newfile(gamelist[gamechoosen-1]);
+	//load_newfile(gamelist[gamechoosen-1]);
+	load_newfile(files[gamechoosen-1].full_path);
 	//reset();
 	memcpy(rom_table,new_rom_table,1024*32);
 	
@@ -673,14 +764,61 @@ void picopac_cart_main()
    }
   }
 }
+
+ void updaterom(unsigned char *m, int memblock) {
+    unsigned int cpt = 0;
+	unsigned int pagescnt;
+	unsigned int titleoffset;
+	
+	switch (memblock) {
+		case 3:
+			titleoffset = 18 * 8; 
+			pagescnt = 7;
+			break;
+		case 2:
+			titleoffset = 11 * 8; 
+			pagescnt = 7;
+			break;
+		case 1:
+			titleoffset = 4 * 8; 
+			pagescnt = 7;
+			break;
+		case 0:
+			titleoffset = 0; 
+			pagescnt = 4;
+			break;
+		default:
+			titleoffset = 0;
+			pagescnt = 0;
+	}
+	char title[17];
+    for (unsigned int page=0; page<pagescnt; page++) {
+        for (unsigned int displine=0; displine<8; displine++) {
+            translate(&title[0], files[titleoffset + cpt].long_filename);
+            memcpy((m + (textpages[memblock][page] - (2048 * (3 - memblock))) + 16 * displine), &title[0],16);
+			// printf("%s %04x %08x %08x\n", files[titleoffset + cpt].long_filename, titleoffset + cpt, m, (m + (textpages[memblock][page] - (2048 * (3 - memblock))) + 16 * displine));
+			//debugprinttranslated(&title[0]);
+            cpt ++;
+        }
+    }
+ }  
+
 #ifdef debugging
 void debugFS(unsigned char *array) {
 	for(int i=0; i<64; i++) {
-		printf("%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n\r",
+		printf("%08x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\n\r",
+		&array[32*i],
 		array[0 + 32*i], array[1 + 32*i], array[2 + 32*i], array[3 + 32*i], array[4 + 32*i], array[5 + 32*i], array[6 + 32*i], array[7 + 32*i], 
 		array[8 + 32*i], array[9 + 32*i], array[10 + 32*i], array[11 + 32*i], array[12 + 32*i], array[13 + 32*i], array[14 + 32*i], array[15 + 32*i], 
 		array[16 + 32*i], array[17 + 32*i], array[18 + 32*i], array[19 + 32*i], array[20 + 32*i], array[21 + 32*i], array[22 + 32*i], array[23 + 32*i],
 		array[24 + 32*i], array[25 + 32*i], array[26 + 32*i], array[27 + 32*i], array[28 + 32*i], array[29 + 32*i], array[30 + 32*i], array[31 + 32*i]);
 	}
-} 	
+}
+
+void debugprinttranslated(unsigned char *s) {
+	for (int i=0; i<16;i++) {
+		printf("%02x", s[i]);
+	}
+	printf("\n");
+}
 #endif
