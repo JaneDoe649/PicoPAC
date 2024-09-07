@@ -1,6 +1,6 @@
-
 #include <string.h>
-
+#include "translate.h"
+#include "game_title.h"
 
 char transcode(char c) {
     switch (c) {
@@ -55,36 +55,41 @@ char transcode(char c) {
     }
 }
 
-void translate(char *d, char* s) {
-    d[0] = 0x0c;    //Title start with space
+unsigned char * gettitle(unsigned char* filename) {
+    for (int i=0; strcmp(game_title[i][0], "") != 0; i++) {
+        if (strcmp(to_uppercase(filename), game_title[i][0]) == 0) {
+            return game_title[i][1];
+        }
+    }
+    // No match
+    return filename;
+}
+
+void translate(unsigned char *encodedtitle, unsigned char* filename) {
+    char *title = gettitle(filename);
+    char v;
+    encodedtitle[0] = 0x0c;    //Title start with space
     for (int i=0; i<16; i++) {
-        char v = s[i];
-        if (i < strlen(s))  {
+        if (i<strlen(title)) {
+            v = title[i];
             if(v >= 'a' && v <= 'z') {
                 v = v - 32;
             }
         } else {
-            v = ' ';
-        }
-        d[i+1] = transcode(v);
+                v = ' ';
+            }
+        encodedtitle[i+1] = transcode(v);
     }
-
-
-
-    /*d[0] = 0x0c;    //Title start with space
-    for (int i=0; i<strlen(s); i++) {
-        if(s[i] >= 'a' && s[i] <= 'z') {
-            s[i] = s[i] -32;
-        }
-        d[i+1] = transcode(s[i]);
-    }*/
 }
 
-unsigned int textpages[4][7] = {    //block, pages
-    {0x1c80, 0x1d80, 0x1e80, 0x1f80, 0x0000, 0x0000, 0x0000},     // Pages 0 -> 3
-    {0x1180, 0x1280, 0x1380, 0x1480, 0x1580, 0x1680, 0x1780},     // Pages 4 -> 10
-    {0x0980, 0x0a80, 0x0b80, 0x0c80, 0x0d80, 0x0e80, 0x0f80},     // Pages 11 -> 17
-    {0x0180, 0x0280, 0x0380, 0x0480, 0x0580, 0x0680, 0x0780}      // Pages 18 -> 24
-};
-
-    
+unsigned char* to_uppercase(unsigned char* str) {
+    unsigned char v;
+    for (int i = 0; str[i] != '\0'; i++) {
+        v = str[i];
+        if(v >= 'a' && v <= 'z') {
+                v = v - 32;
+            }
+        str[i] = v;
+    }
+    return str;
+}
