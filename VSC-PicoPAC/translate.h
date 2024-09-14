@@ -3,7 +3,7 @@
 char transcode(char c);
 unsigned char * gettitle(unsigned char* filename);
 void translate(unsigned char *encodedtitle, unsigned char* filename);
-unsigned char* to_uppercase(unsigned char* str);
+// unsigned char* to_uppercase(unsigned char* str);
 
 unsigned int textpages[4][7] = {    //block, pages
     {0x1c80, 0x1d80, 0x1e80, 0x1f80, 0x0000, 0x0000, 0x0000},     // Pages 0 -> 3

@@ -15,7 +15,7 @@
 //
 */
 
-#define debugging
+// #define debugging
 #define maxfiles 200
 
 #include <stdio.h>
@@ -302,42 +302,39 @@ void reset() {
  //multicore_lockout_start_blocking();	
 
   while (gpio_get(PSEN_PIN)==0) {
-  SET_DATA_MODE_OUT;
-  gpio_put_masked(DATA_PIN_MASK,0x84<<D0_PIN);
- 	}
+	SET_DATA_MODE_OUT;
+	gpio_put_masked(DATA_PIN_MASK,0x84<<D0_PIN);
+  }
   SET_DATA_MODE_IN;
- while (gpio_get(PSEN_PIN)==0) {
-  SET_DATA_MODE_OUT;
-  gpio_put_masked(DATA_PIN_MASK,0x00<<D0_PIN);
- 	}
+  while (gpio_get(PSEN_PIN)==0) {
+  	SET_DATA_MODE_OUT;
+  	gpio_put_masked(DATA_PIN_MASK,0x00<<D0_PIN);
+  }
   SET_DATA_MODE_IN;
  
   sleep_ms(5);
  
   while (gpio_get(PSEN_PIN)==0) {
-  SET_DATA_MODE_OUT;
-  gpio_put_masked(DATA_PIN_MASK,0x84<<D0_PIN);
+  	SET_DATA_MODE_OUT;
+  	gpio_put_masked(DATA_PIN_MASK,0x84<<D0_PIN);
   }
   SET_DATA_MODE_IN;
   while (gpio_get(PSEN_PIN)==0) {
-  SET_DATA_MODE_OUT;
-  gpio_put_masked(DATA_PIN_MASK,0x00<<D0_PIN);
- 	}
+  	SET_DATA_MODE_OUT;
+  	gpio_put_masked(DATA_PIN_MASK,0x00<<D0_PIN);
+  }
   SET_DATA_MODE_IN;
  
   while (gpio_get(PSEN_PIN)==0) {
-  SET_DATA_MODE_OUT;
-  gpio_put_masked(DATA_PIN_MASK,0x84<<D0_PIN);
+  	SET_DATA_MODE_OUT;
+  	gpio_put_masked(DATA_PIN_MASK,0x84<<D0_PIN);
   }
   SET_DATA_MODE_IN;
   while (gpio_get(PSEN_PIN)==0) {
-  SET_DATA_MODE_OUT;
-  gpio_put_masked(DATA_PIN_MASK,0x00<<D0_PIN);
- 	}
+  	SET_DATA_MODE_OUT;
+  	gpio_put_masked(DATA_PIN_MASK,0x00<<D0_PIN);
+  }
   SET_DATA_MODE_IN;
-
-
-
 }       
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -370,7 +367,7 @@ char *get_filename_ext(char *filename) {
 
 int is_valid_file(char *filename) {
 	char *ext = get_filename_ext(filename);
-	if (strcasecmp(ext, "BIN") == 0 || strcasecmp(ext, "ROM") == 0  || strcasecmp(ext, "CV") )
+	if (strcasecmp(ext, "BIN") == 0 || strcasecmp(ext, "ROM") == 0  || strcasecmp(ext, "CV") == 0)
 		return 1;
 	return 0;
 }
@@ -462,7 +459,8 @@ int tree(char *path)
     FRESULT res;
     DIR dir;
     UINT i;
-
+	char localpath[5];
+	char localfile[37];
 	res = f_opendir(&dir, path);
 	if (res == FR_OK) {
 		for (;;) {
@@ -470,43 +468,42 @@ int tree(char *path)
 			res = f_readdir(&dir, &fno);
 			if (res != FR_OK || fno.fname[0] == 0) return FR_OK; //break;
 			if (fno.fattrib & (AM_HID | AM_SYS)) continue;
-			if (fno.fattrib & AM_DIR) {
-				char localpath[40];
-				strcpy(localpath, path);
-				i = strlen(path);
-				if (i>1)
-					strcat(localpath, "/");
-				if (fno.altname[0])	// no altname when lfn is 8.3
+			strcpy(localpath, "");
+			strcpy(localpath, path);
+			if (strlen(localpath) > 1)
+				strcat(localpath, "/");
+			strcpy(localfile, "");
+			strcat(localfile, localpath);
+			strcat(localfile, fno.fname);
+			if (fno.fattrib & AM_DIR) {	
+				/*if (fno.altname[0])	// no altname when lfn is 8.3
 					strcat(localpath, fno.altname);
 				else
-					strcat(localpath, fno.fname);
+					strcat(localpath, fno.fname);*/
 				// if (strlen(localpath) >= 210) continue;	// no more room for path in DIR_ENTRY
+				strcat(localpath, fno.fname);
 				res = tree(localpath);
 				if (res != FR_OK) break;
-				//path[i] = 0;
 			}
-			else if (is_valid_file(fno.fname))
+			else if (is_valid_file(localfile))
 			{
-				
-				if (1 == 1) {
-					//DIR_ENTRY *dst = (DIR_ENTRY *)&files[0];
-					DIR_ENTRY *dst = &files[num_dir_entries];
-					//dst += num_dir_entries;
-					// fill out a record
-					strncpy(dst->long_filename, fno.fname, 31);
-					dst->long_filename[31] = 0;
-					// 8.3 name
-					/*if (fno.altname[0])
-						strcpy(dst->filename, fno.altname);
-					else {	// no altname when lfn is 8.3
-						strncpy(dst->filename, fno.fname, 12);
-						dst->filename[12] = 0;
-					}*/
-					// full path for search results
-					strcpy(dst->full_path, path);
-					printf("%s/%s\n",dst->full_path, dst->long_filename);
-					num_dir_entries++;
-				}
+				//DIR_ENTRY *dst = (DIR_ENTRY *)&files[0];
+				DIR_ENTRY *dst = &files[num_dir_entries];
+				//dst += num_dir_entries;
+				// fill out a record
+				strncpy(dst->long_filename, fno.fname, 31);
+				dst->long_filename[31] = 0;
+				// 8.3 name
+				/*if (fno.altname[0])
+					strcpy(dst->filename, fno.altname);
+				else {	// no altname when lfn is 8.3
+					strncpy(dst->filename, fno.fname, 12);
+					dst->filename[12] = 0;
+				}*/
+				// full path for search results			
+				strcpy(dst->full_path, path);
+				printf("%s/%s\n",dst->full_path, dst->long_filename);
+				num_dir_entries++;				
 			}
 		}
 		f_closedir(&dir);
@@ -554,9 +551,6 @@ int filesize(char *filename) {
 		error(2);
 		goto cleanup;
 	}
-
-
-
 	int byteslong = f_size(&fil);
 	romsize=byteslong;
 
@@ -582,8 +576,6 @@ int load_file(char *filename) {
 	memset(rom_table,0,1024*8*4);
 	
 	l=filesize(filename);
-	
-    
 	
 	if (f_mount(&FatFs, "", 1) != FR_OK) {
 		error(1);
@@ -678,7 +670,7 @@ int load_newfile(char *filename) {
 				error(3);
 			}
 			#ifdef debugging
-				//debugFS(&new_rom_table[i][1024]);
+				debugFS(&new_rom_table[i][1024]);
 			#endif
 			k=k+1;
         	memcpy(&new_rom_table[i][3072], &new_rom_table[i][2048], 1024); /* simulate missing A10 */
@@ -709,7 +701,7 @@ void picopac_cart_main()
     uint32_t addr;
     uint32_t dataOut=0;
     uint16_t dataWrite=0;
-	 int ret=0;
+	int ret=0;
 
     int l, nb;
    
@@ -730,18 +722,18 @@ void picopac_cart_main()
   if (!fatfs_is_mounted())
     mount_fatfs_disk();
 
-	FATFS FatFs;
-	if (f_mount(&FatFs, "", 1) != FR_OK) {
-		return;
-	}	
-	tree("/");
+  FATFS FatFs;
+  if (f_mount(&FatFs, "", 1) != FR_OK) {
+	return;
+  }	
+  tree("/");
 
 
    load_file("/selectgame.bin");
    //load_file("/pb_q-bert.bin");
    #ifdef debugging
-   // printf("---- %s ----\n\r", gamelist[0]);
-   // load_newfile(gamelist[0]);
+    printf("---- %s ----\n\r", gamelist[0]);
+    load_newfile(gamelist[0]);
    #endif
   	// overclocking isn't necessary for most functions - but XEGS carts weren't working without it
 	// I guess we might as well have it on all the time.

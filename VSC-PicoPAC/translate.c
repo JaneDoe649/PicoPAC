@@ -57,7 +57,7 @@ char transcode(char c) {
 
 unsigned char * gettitle(unsigned char* filename) {
     for (int i=0; strcmp(game_title[i][0], "") != 0; i++) {
-        if (strcmp(to_uppercase(filename), game_title[i][0]) == 0) {
+        if (strcasecmp(filename, game_title[i][0]) == 0) {
             return game_title[i][1];
         }
     }
@@ -82,7 +82,7 @@ void translate(unsigned char *encodedtitle, unsigned char* filename) {
     }
 }
 
-unsigned char* to_uppercase(unsigned char* str) {
+/* unsigned char* to_uppercase(unsigned char* str) {
     unsigned char v;
     for (int i = 0; str[i] != '\0'; i++) {
         v = str[i];
@@ -92,4 +92,4 @@ unsigned char* to_uppercase(unsigned char* str) {
         str[i] = v;
     }
     return str;
-}
+}*/ 

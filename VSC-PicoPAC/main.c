@@ -27,8 +27,10 @@
 #include "picopac_cart.h"
 #include "fatfs_disk.h"
 
+void picopac_cart_main();
+
 //void cdc_task(void);
- #define debugging
+ // #define debugging
 
 //--------------------------------------------------------------------+
 // USB CDC
@@ -108,7 +110,7 @@ int main(void)
        // enter USB mass storage mode
      //  tud_init(BOARD_TUD_RHPORT);
      //  stdio_init_all();   // for serial output, via printf()
-       printf("Start Storage mode\n");
+       // printf("Start Storage mode\n");
 
        while (1) {
           tud_task(); // tinyusb device task
