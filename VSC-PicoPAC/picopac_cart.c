@@ -15,7 +15,7 @@
 //
 */
 
-// #define debugging
+#define debugging
 #define maxfiles 200
 
 #include <stdio.h>
@@ -532,6 +532,76 @@ int search_directory(char *path, char *search) {
 	return 0;
 }
 
+int read_directory(char *path) {
+	int ret = 0;
+	num_dir_entries = 0;
+	DIR_ENTRY *dst = (DIR_ENTRY *)&files[0];
+	char localpath[35];
+	strcpy(localpath, path);
+
+	if (strcmp(path, "..") == 0) {
+		strcpy(localpath, "/");
+	} else 	if (strcmp(path, "/") != 0) {
+		dst->isDir = 1;
+		strcpy(dst->full_path, "..");
+		strcpy(dst->long_filename, "..");
+		dst++;
+		num_dir_entries++;
+	}  	
+
+    if (!fatfs_is_mounted())
+       mount_fatfs_disk();
+
+	FATFS FatFs;
+	if (f_mount(&FatFs, "", 1) == FR_OK) {
+		DIR dir;
+		if (f_opendir(&dir, localpath) == FR_OK) {
+			while (num_dir_entries < maxfiles) {
+				if (f_readdir(&dir, &fno) != FR_OK || fno.fname[0] == 0)
+					break;
+				if (fno.fattrib & (AM_HID | AM_SYS))
+					continue;
+				dst->isDir = fno.fattrib & AM_DIR ? 1 : 0;
+				if (!dst->isDir) 
+					if (!is_valid_file(fno.fname)) continue;
+				// copy file record to first ram block
+				// long file name
+				strncpy(dst->long_filename, fno.fname, 31);
+				dst->long_filename[31] = 0;
+				// 8.3 name
+				/*if (fno.altname[0])
+		            strcpy(dst->filename, fno.altname);
+				else {	// no altname when lfn is 8.3
+					strncpy(dst->filename, fno.fname, 12);
+					dst->filename[12] = 0;
+				}*/
+				strcpy(dst->full_path, localpath); //[0] = 0; // path only for search results
+	            dst++;
+				num_dir_entries++;
+			}
+			f_closedir(&dir);
+		}
+		else
+			strcpy(errorBuf, "Can't read directory");
+		f_mount(0, "", 1);
+		// clean list
+		for(int i = num_dir_entries; i < maxfiles; i++) {
+			if (dst->long_filename[0] == 0) {
+				break;
+			} else {
+				dst->isDir = 0;
+				dst->full_path[0] = 0;
+				dst->long_filename[0] = 0;
+			}
+			dst++;
+		}
+		qsort((DIR_ENTRY *)&files[0], num_dir_entries, sizeof(DIR_ENTRY), entry_compare);
+		ret = 1;
+	}
+	else
+		strcpy(errorBuf, "Can't read flash memory");
+	return ret;
+}
 
 int filesize(char *filename) {
     if (!fatfs_is_mounted())
@@ -620,7 +690,7 @@ cleanup:
 	return br;
 }
 
-int load_newfile(char *filename) {
+int load_newfile(DIR_ENTRY *entry) {
 	FATFS FatFs;
 	UINT br = 0;
 	UINT bw = 0;
@@ -628,12 +698,17 @@ int load_newfile(char *filename) {
     int k=0;
 
 	char fullpath[35];
-	fullpath[0]= '/';
-	fullpath[1] = filename[0];
-	fullpath[2]= '/';
-	fullpath[3] = 0;
 
-	strcat(fullpath, filename);
+	//fullpath[0]= '/';
+	//fullpath[1] = filename[0];
+	//fullpath[2]= '/';
+	//fullpath[3] = 0;
+	strcpy(fullpath, "/");
+	if (strcmp(entry->full_path, "") != 0) {
+		strcat(fullpath, entry->full_path);
+		strcat(fullpath, "/");
+	}
+	strcat(fullpath, entry->long_filename);
 
 	memset(new_rom_table,0,1024*8*4);
 	
@@ -650,7 +725,7 @@ int load_newfile(char *filename) {
     
 	nb = l/2048;   // nb = number of banks, l=file size)
 		
-    if ((strcmp(filename,"vp_40.bin")==0)||((strcmp(filename,"vp_31.bin")==0))) {  // 3k games
+    if ((strcmp(entry->long_filename,"vp_40.bin")==0)||((strcmp(entry->long_filename,"vp_31.bin")==0))||((strcmp(entry->long_filename,"4inarow.bin")==0))) {  // 3k games
 	        new_bank_type=2;
 			if (f_read(&fil, &extROM[0], 1024, &br) != FR_OK) {
               // error(2);
@@ -719,26 +794,31 @@ void picopac_cart_main()
   sleep_ms(200);
 
 // get files on SD
-  if (!fatfs_is_mounted())
+ /* if (!fatfs_is_mounted())
     mount_fatfs_disk();
 
   FATFS FatFs;
   if (f_mount(&FatFs, "", 1) != FR_OK) {
 	return;
-  }	
-  tree("/");
+  }*/	
+  // tree("/");
+  read_directory("/");
 
 
    load_file("/selectgame.bin");
    //load_file("/pb_q-bert.bin");
    #ifdef debugging
-    printf("---- %s ----\n\r", gamelist[0]);
-    load_newfile(gamelist[0]);
+	gamechoosen = 2;
+    // printf("---- %i - %s ----\n", gamechoosen, files[gamechoosen - 1]);
+	printf("Game selected\n");
+    // load_newfile(gamelist[gamechoosen - 1]);
    #endif
   	// overclocking isn't necessary for most functions - but XEGS carts weren't working without it
 	// I guess we might as well have it on all the time.
-    
+    #ifndef debugging
+	printf("clock : 27000\n");
 	set_sys_clock_khz(270000, true);
+	#endif
     //set_sys_clock_khz(170000, true);
 
 
@@ -757,12 +837,29 @@ void picopac_cart_main()
 	sleep_ms(1800);
 
 	//load_newfile(gamelist[gamechoosen-1]);
-	load_newfile(files[gamechoosen-1].full_path);
-	//reset();
-	memcpy(rom_table,new_rom_table,1024*32);
-	
-	newgame=1;
-	
+	if (!files[gamechoosen-1].isDir) {
+		#ifdef debugging
+		printf("load_newfile(%s)\n", files[gamechoosen-1].long_filename);
+		#endif
+		load_newfile(&files[gamechoosen-1]);
+		//reset();
+		memcpy(rom_table,new_rom_table,1024*32);
+		gamechoosen = 0; //JDoe
+		newgame=1;
+	} else {
+		#ifdef debugging
+		printf("read_directory(%s)\n", files[gamechoosen-1].long_filename);
+		#endif
+		read_directory(files[gamechoosen-1].long_filename);
+		for (int i = 4 - 1; i >= 0; i--) {
+			// update rom with files on SD
+			updaterom(&rom_table[i][1024], i);
+			#ifdef debugging
+				debugFS(&rom_table[i][1024]);
+			#endif
+			memcpy(&rom_table[i][3072], &rom_table[i][2048], 1024); /* simulate missing A10 */
+    	}
+	}
    }
   }
 }

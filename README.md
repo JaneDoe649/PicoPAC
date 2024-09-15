@@ -4,7 +4,7 @@ Based on SD card by Wilco2009: https://github.com/wilco2009/Videopac-micro-SD-Ca
 
 Since now, tested on  G-7000, G7400, C52, JOPAC and Odyssey 2. Waiting for a friend that has to repair his G7200 for completing the list ;) 
 
-Added support to extROM games too (VP_40 and VP_31).
+Added support to extROM games too (VP_40, VP_31 and 4INAROW.BIN).
 
 PicoPAC is a multicart DIY yourself based on cheap "PURPLE" Raspberry Pi Pico clone, easy to build and not expensive.
 **WARNING!** "purple" Pico has not the same pinout of original Raspberry "green" ones, you MUST use the clone or you may damage your hardware. 
@@ -12,6 +12,10 @@ PicoPAC is a multicart DIY yourself based on cheap "PURPLE" Raspberry Pi Pico cl
 ![ScreenShot](https://raw.githubusercontent.com/JaneDoe649/PicoPAC/develop/pictures/PurpleClonePinout.jpg)
 
 **NOTE** filename are "fixed" and hardcoded in firmware to match the "selectgame.bin" menu. You should find all the ROM with matching filenames following this site https://rene-g7400.datatex.nl/ 
+
+[!NOTE]Attempt to allow navigation in the SD card tree (limited to one sub-level) from the menu. For ROMs referenced in MAME, the name of the game is displayed in the menu.
+[!WARNING]Development not tested on a console at the moment
+
 Please don't forget to upload the here provided "selectgame.bin" file in flash!!!!
 
 ![ScreenShot](https://raw.githubusercontent.com/aotta/PicoPAC/main/pictures/picopac3.jpg)

@@ -59,7 +59,7 @@ target_include_directories(PicoPAC_cart PUBLIC
 
 # Enable usb output, disable uart output
 pico_enable_stdio_usb(PicoPAC_cart 1)
-pico_enable_stdio_uart(PicoPAC_cart 0) #0 in final release, 1 for debug probe
+pico_enable_stdio_uart(PicoPAC_cart 1) #0 in final release, 1 for debug probe
 
 # In addition to pico_stdlib required for common PicoSDK functionality, add dependency on tinyusb_device
 # for TinyUSB device support

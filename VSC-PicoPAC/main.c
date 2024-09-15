@@ -30,7 +30,7 @@
 void picopac_cart_main();
 
 //void cdc_task(void);
- // #define debugging
+#define debugging
 
 //--------------------------------------------------------------------+
 // USB CDC
