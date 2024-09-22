@@ -2,7 +2,7 @@
 #define __DEVICE_FLASH_H__
 
 //device available flash memmory
-#define AVAILABLE_FLASH 8
+#define AVAILABLE_FLASH 16
 #define HW_FLASH_STORAGE_BASE  (1024 * 1024)
 
 #define SECTOR_SIZE 512

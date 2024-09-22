@@ -11,10 +11,13 @@ PicoPAC is a multicart DIY yourself based on cheap "PURPLE" Raspberry Pi Pico cl
 **Several pinouts exist depending on the clone manufacturer. The pinout corresponding to the PCB is as follows :**
 ![ScreenShot](https://raw.githubusercontent.com/JaneDoe649/PicoPAC/develop/pictures/PurpleClonePinout.jpg)
 
-**NOTE** filename are "fixed" and hardcoded in firmware to match the "selectgame.bin" menu. You should find all the ROM with matching filenames following this site https://rene-g7400.datatex.nl/ 
+**NOTE** You should find all the ROM with matching filenames following this site https://rene-g7400.datatex.nl/ 
 
-[!NOTE]Attempt to allow navigation in the SD card tree (limited to one sub-level) from the menu. For ROMs referenced in MAME, the name of the game is displayed in the menu.
-[!WARNING]Development not tested on a console at the moment
+**NOTE** FORK WORK IN PROGRESS :
+Navigating the SD card tree (limited to one sub-level) from the menu successfully tested on the C52;
+Add EXTRAM readings;
+For ROMs referenced in MAME, the name of the game is displayed in the menu;
+Trying to fix console reset when a game is selected (not yet operational).
 
 Please don't forget to upload the here provided "selectgame.bin" file in flash!!!!
 

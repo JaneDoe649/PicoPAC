@@ -15,7 +15,7 @@
 //
 */
 
-#define debugging
+//#define debugging
 #define maxfiles 200
 
 #include <stdio.h>
@@ -31,7 +31,7 @@
 #include "hardware/sync.h"
 
 
-#include "gamelist.h"
+//#include "gamelist.h"
 
 #include "tusb.h"
 #include "ff.h"
@@ -40,7 +40,7 @@
 #include "hardware/clocks.h"
 
 #include "translate.c"
-
+#include "picopac_cart.h"
 // Pico pin usage definitions
 
 #define A0_PIN    0
@@ -135,12 +135,12 @@ unsigned char RAM[1024];
 //unsigned char files[256*100] = {0};
 
 // unsigned char nomefiles[32*25] = {0};
-char curPath[5] = "";
+//char curPath[5] = "";
 char path[5];
 int fileda=0,filea=0;
 volatile char cmd=0;
 char errorBuf[40];
-bool cmd_executing;
+//bool cmd_executing;
 volatile int bankswitch;
 int bksw=0;
 int romsize;
@@ -149,6 +149,7 @@ volatile u_int8_t bank_type=1;
 volatile u_int8_t new_bank_type=1;
 volatile char gamechoosen=0;
 volatile char newgame=0;
+volatile char resetnow=0;
 char extram[0xff];
 
 
@@ -192,9 +193,12 @@ void __not_in_flash_func(core1_main()) {
 	multicore_lockout_victim_init();	
    
     //gpio_set_dir_in_masked(ALWAYS_IN_MASK);
-	
+	unsigned char resetop[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x84, 0x00};
+
    newgame=0;
    gamechoosen=0;
+
+   resetnow=0;
 
     // Initial conditions
     //SET_DATA_MODE_IN;
@@ -206,14 +210,23 @@ void __not_in_flash_func(core1_main()) {
 			bank=3-((gpio_get(P10_PIN)+(gpio_get(P11_PIN)*2)));
 	   		if (gpio_get(PSEN_PIN)==0) {
 				SET_DATA_MODE_OUT;
-    			gpio_put_masked(DATA_PIN_MASK,(rom_table[bank][addr])<<D0_PIN);
-			} 
-		  	if((gpio_get(CS_PIN)==0) && (gpio_get(WR_PIN)==0)) {
+    				gpio_put_masked(DATA_PIN_MASK,(rom_table[bank][addr])<<D0_PIN);
+			}
+		  	if((gpio_get(CS_PIN)==0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==0)) {
 				   extram[addr & 0xff]=((pins & DATA_PIN_MASK)>>D0_PIN);	
+				   /*extram[0xff] values :
+				   		0xaa : item selected in menu
+						0xbb : item is folder, ask 8748 refresh page
+						0xcc : pi ask 8748 to JMP 0x400
+						0xdd : 8748 tells next instruction is JMP 0x400
+				   */
 				   if (extram[0xff]==0xaa) {
 			         gamechoosen=extram[0xfe];
+				   } else if (extram[0xff]==0xdd) { //Jmp 0400h is next instruction
+						resetnow=1;
 				   }
 			} 
+			EXTRAM_READ();
 			
 		 SET_DATA_MODE_IN;
 		}
@@ -233,7 +246,9 @@ void __not_in_flash_func(core1_main()) {
 			if (gpio_get(PSEN_PIN)==0) {
 				SET_DATA_MODE_OUT;
     			gpio_put_masked(DATA_PIN_MASK,(rom_table[bank][addr])<<D0_PIN);
-			} 
+			}
+			EXTRAM_WRITE();
+			EXTRAM_READ(); 
 		 SET_DATA_MODE_IN;
 		}
 		break;
@@ -247,6 +262,8 @@ void __not_in_flash_func(core1_main()) {
 				SET_DATA_MODE_OUT;
     			gpio_put_masked(DATA_PIN_MASK,(rom_table[bank][addr])<<D0_PIN); 
 		  }
+		EXTRAM_WRITE();
+		EXTRAM_READ(); 
 		 SET_DATA_MODE_IN;
 		}
 		break;
@@ -261,7 +278,9 @@ void __not_in_flash_func(core1_main()) {
 				if (gpio_get(PSEN_PIN)==0) {
 					SET_DATA_MODE_OUT;
     				gpio_put_masked(DATA_PIN_MASK,(rom_table[0][addr])<<D0_PIN);	
-				} 
+				}
+				EXTRAM_WRITE();
+				EXTRAM_READ();  
 			} 	
 			
 		 SET_DATA_MODE_IN;
@@ -285,6 +304,8 @@ void __not_in_flash_func(core1_main()) {
 					SET_DATA_MODE_OUT;
     				gpio_put_masked(DATA_PIN_MASK,(rom_table[bank][addr])<<D0_PIN);
 				}
+				EXTRAM_WRITE();
+				EXTRAM_READ(); 
 			} 
 		 	SET_DATA_MODE_IN;
 		  //}
@@ -296,6 +317,7 @@ void __not_in_flash_func(core1_main()) {
 ////////////////////////////////////////////////////////////////////////////////////
 //                     MENU Reset
 ////////////////////////////////////////////////////////////////////////////////////    
+
 
 void reset() {
    
@@ -335,7 +357,7 @@ void reset() {
   	gpio_put_masked(DATA_PIN_MASK,0x00<<D0_PIN);
   }
   SET_DATA_MODE_IN;
-}       
+}     
 
 ////////////////////////////////////////////////////////////////////////////////////
 
@@ -576,6 +598,7 @@ int read_directory(char *path) {
 					dst->filename[12] = 0;
 				}*/
 				strcpy(dst->full_path, localpath); //[0] = 0; // path only for search results
+				//printf("-%s  %s\n",dst->full_path,dst->long_filename);
 	            dst++;
 				num_dir_entries++;
 			}
@@ -641,7 +664,6 @@ int load_file(char *filename) {
 	UINT br = 0;
 	UINT bw = 0;
     int l,nb;
-    int k=0;
 
 	memset(rom_table,0,1024*8*4);
 	
@@ -659,7 +681,7 @@ int load_file(char *filename) {
 	
 	FIL fil;
 	if (f_open(&fil, filename, FA_READ) != FR_OK) {
-		error(2);
+		error(6);
 	}
 	
 
@@ -667,14 +689,13 @@ int load_file(char *filename) {
 	
 		for (int i = nb - 1; i >= 0; i--) {
         	if (f_read(&fil,&rom_table[i][1024], 2048, &br)!= FR_OK) {
-				error(3);
+				error(9);
 			}
 			// update rom with files on SD
 			updaterom(&rom_table[i][1024], i);
 			#ifdef debugging
 				debugFS(&rom_table[i][1024]);
 			#endif
-			k=k+1;
         	memcpy(&rom_table[i][3072], &rom_table[i][2048], 1024); /* simulate missing A10 */
     	}
             // mirror ROM in higher banks
@@ -690,19 +711,14 @@ cleanup:
 	return br;
 }
 
-int load_newfile(DIR_ENTRY *entry) {
+int load_newfile(DIR_ENTRY *entry, char updatemenu) {
 	FATFS FatFs;
 	UINT br = 0;
 	UINT bw = 0;
     int l,nb;
-    int k=0;
 
 	char fullpath[35];
 
-	//fullpath[0]= '/';
-	//fullpath[1] = filename[0];
-	//fullpath[2]= '/';
-	//fullpath[3] = 0;
 	strcpy(fullpath, "/");
 	if (strcmp(entry->full_path, "") != 0) {
 		strcat(fullpath, entry->full_path);
@@ -720,7 +736,7 @@ int load_newfile(DIR_ENTRY *entry) {
 
 	FIL fil;
 	if (f_open(&fil, fullpath, FA_READ) != FR_OK) { //fullpath
-		error(2);
+		error(4);
 	}
     
 	nb = l/2048;   // nb = number of banks, l=file size)
@@ -728,10 +744,10 @@ int load_newfile(DIR_ENTRY *entry) {
     if ((strcmp(entry->long_filename,"vp_40.bin")==0)||((strcmp(entry->long_filename,"vp_31.bin")==0))||((strcmp(entry->long_filename,"4inarow.bin")==0))) {  // 3k games
 	        new_bank_type=2;
 			if (f_read(&fil, &extROM[0], 1024, &br) != FR_OK) {
-              // error(2);
+              // error(5);
             }
             if (f_read(&fil, &new_rom_table[0][1024], 3072, &br) != FR_OK) {
-               // error(3);
+               // error(7);
             } 	
 	} else
 
@@ -742,12 +758,16 @@ int load_newfile(DIR_ENTRY *entry) {
 
 		for (int i = nb - 1; i >= 0; i--) {
         	if (f_read(&fil,&new_rom_table[i][1024], 2048, &br)!= FR_OK) {
-				error(3);
+				error(7);
+			}
+			if (updatemenu != 0) {
+				// update rom with files on SD
+				updaterom(&new_rom_table[i][1024], i);
 			}
 			#ifdef debugging
 				debugFS(&new_rom_table[i][1024]);
 			#endif
-			k=k+1;
+
         	memcpy(&new_rom_table[i][3072], &new_rom_table[i][2048], 1024); /* simulate missing A10 */
     	}
 	}
@@ -793,20 +813,12 @@ void picopac_cart_main()
   multicore_launch_core1(core1_main);
   sleep_ms(200);
 
-// get files on SD
- /* if (!fatfs_is_mounted())
-    mount_fatfs_disk();
-
-  FATFS FatFs;
-  if (f_mount(&FatFs, "", 1) != FR_OK) {
-	return;
-  }*/	
-  // tree("/");
-  read_directory("/");
+   // get files on SD
+   read_directory("/");
 
 
    load_file("/selectgame.bin");
-   //load_file("/pb_q-bert.bin");
+
    #ifdef debugging
 	gamechoosen = 2;
     // printf("---- %i - %s ----\n", gamechoosen, files[gamechoosen - 1]);
@@ -823,42 +835,43 @@ void picopac_cart_main()
 
 
   memset(extram,0,0xff);
-  //load_file("/vp_38.bin");
-  //load_file("/vp_59_16.bin");
-  
-    
-  // Initial conditions 
-  curPath[0]=0;
-  while (1) {
-	 cmd_executing=false;
    
-    if ((gamechoosen>=1)) {
+  // Initial conditions 
+    while (1) {
+	    
+    if (gamechoosen>=1) {
 
-	sleep_ms(1800);
+	sleep_ms(1400);
 
 	//load_newfile(gamelist[gamechoosen-1]);
 	if (!files[gamechoosen-1].isDir) {
 		#ifdef debugging
 		printf("load_newfile(%s)\n", files[gamechoosen-1].long_filename);
 		#endif
-		load_newfile(&files[gamechoosen-1]);
-		//reset();
+		load_newfile(&files[gamechoosen-1], 0);
+		extram[0xff]=0xcc; // request reset
+		while (resetnow == 0){}	//Wait 8748 is ready to JMP 0x400
 		memcpy(rom_table,new_rom_table,1024*32);
-		gamechoosen = 0; //JDoe
+		gamechoosen = 0;
 		newgame=1;
 	} else {
 		#ifdef debugging
 		printf("read_directory(%s)\n", files[gamechoosen-1].long_filename);
 		#endif
 		read_directory(files[gamechoosen-1].long_filename);
-		for (int i = 4 - 1; i >= 0; i--) {
-			// update rom with files on SD
-			updaterom(&rom_table[i][1024], i);
-			#ifdef debugging
-				debugFS(&rom_table[i][1024]);
-			#endif
-			memcpy(&rom_table[i][3072], &rom_table[i][2048], 1024); /* simulate missing A10 */
-    	}
+
+		DIR_ENTRY localentry[1]; 
+		localentry->isDir=0;
+		strcpy(localentry->full_path, "/");
+		strcpy(localentry->long_filename, "selectgame.bin");
+
+		load_newfile(localentry, 1);
+
+		//reset();
+		memcpy(rom_table,new_rom_table,1024*32);
+
+		extram[0xff]=0xbb; // request menu refresh
+		gamechoosen = 0; //JDoe
 	}
    }
   }
@@ -895,7 +908,7 @@ void picopac_cart_main()
         for (unsigned int displine=0; displine<8; displine++) {
             translate(&title[0], files[titleoffset + cpt].long_filename);
             memcpy((m + (textpages[memblock][page] - (2048 * (3 - memblock))) + 16 * displine), &title[0],16);
-			// printf("%s %04x %08x %08x\n", files[titleoffset + cpt].long_filename, titleoffset + cpt, m, (m + (textpages[memblock][page] - (2048 * (3 - memblock))) + 16 * displine));
+			//printf("%s %04x %08x %08x\n", &files[titleoffset + cpt].long_filename, titleoffset + cpt, m, (m + (textpages[memblock][page] - (2048 * (3 - memblock))) + 16 * displine));
 			//debugprinttranslated(&title[0]);
             cpt ++;
         }
