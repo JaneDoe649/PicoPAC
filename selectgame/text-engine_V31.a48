@@ -135,12 +135,20 @@ skip_menureset
 	movx a,@r1
 	xrl a,#0cch ; reset requested ?
 	jnz skip_cpu_reset
+	call init	; init odyssey
+	call extramenable
+	
+	mov r1, #0ffh
+	mov a,#0ddh ; reset is coming
+	movx @r1,a
+
+	call vdcenable
+
 	mov a,psw
 	anl a,#11111000b
 	mov psw,a	;reset stack pointer
-	mov a,#0ddh ; reset is comming
-	movx @r1,a
-	jmp 0400h
+
+	jmp 00h
 skip_cpu_reset
 	;;;
 	call waitvsync

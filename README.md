@@ -1,4 +1,12 @@
 # PicoPAC
+**Thanks to Aotta and the other contributors for this wonderful work that brings our old consoles back to life!**
+
+**NOTE** FORK WORK IN PROGRESS :
+> Navigating the SD card tree (limited to one sub-level and 5 chars directory names) from the menu successfully tested on the C52;
+> Add EXTRAM readings;
+> For ROMs referenced in MAME, the name of the game is displayed in the menu;
+> Resetting after loading the game is tricky but seems to work (at least on my C52).
+
 Flashcart for Videopac / Odyssey 2 based on Wilco2009 Videopac-microSD card project
 Based on SD card by Wilco2009: https://github.com/wilco2009/Videopac-micro-SD-Cart , my greetings for his fantastic job!
 
@@ -13,11 +21,6 @@ PicoPAC is a multicart DIY yourself based on cheap "PURPLE" Raspberry Pi Pico cl
 
 **NOTE** You should find all the ROM with matching filenames following this site https://rene-g7400.datatex.nl/ 
 
-**NOTE** FORK WORK IN PROGRESS :
-Navigating the SD card tree (limited to one sub-level) from the menu successfully tested on the C52;
-Add EXTRAM readings;
-For ROMs referenced in MAME, the name of the game is displayed in the menu;
-Trying to fix console reset when a game is selected (not yet operational).
 
 Please don't forget to upload the here provided "selectgame.bin" file in flash!!!!
 
