@@ -23,16 +23,4 @@
 #define FLAG_MASK       0x0FC00000L
 #define PSEN_PIN 22
 
-/* Extram read*/
-#define EXTRAM_READ() {\
-			if((gpio_get(CS_PIN) == 0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==1)) {\
-				SET_DATA_MODE_OUT;\
-				gpio_put_masked(DATA_PIN_MASK,(extram[addr & 0xff])<<D0_PIN);\
-			}\
-}
-#define EXTRAM_WRITE() {\
-		  	if((gpio_get(CS_PIN)==0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==0)) {\
-				   extram[addr & 0xff]=((pins & DATA_PIN_MASK)>>D0_PIN);\
-			} \
-}
 #endif

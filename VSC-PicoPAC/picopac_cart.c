@@ -228,7 +228,14 @@ void __not_in_flash_func(core1_main()) {
 						resetnow=1;
 				   }
 			} 
-			EXTRAM_READ();
+			// override extram read at 0xff
+			if((gpio_get(CS_PIN) == 0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==1)) {
+				// only when refresh page is needed
+				if ((extram[addr & 0xff] == 0xbb) && ((addr & 0xff)) == 0xff) {
+					SET_DATA_MODE_OUT;
+					gpio_put_masked(DATA_PIN_MASK,(extram[addr & 0xff])<<D0_PIN);
+				}
+			}
 			
 		 SET_DATA_MODE_IN;
 		}
@@ -249,8 +256,8 @@ void __not_in_flash_func(core1_main()) {
 				SET_DATA_MODE_OUT;
     			gpio_put_masked(DATA_PIN_MASK,(new_rom_table[bank][addr])<<D0_PIN);
 			}
-			EXTRAM_WRITE();
-			EXTRAM_READ(); 
+			//EXTRAM_WRITE();
+			//EXTRAM_READ(); 
 		 SET_DATA_MODE_IN;
 		}
 		break;
@@ -264,8 +271,8 @@ void __not_in_flash_func(core1_main()) {
 				SET_DATA_MODE_OUT;
     			gpio_put_masked(DATA_PIN_MASK,(new_rom_table[bank][addr])<<D0_PIN); 
 		  }
-		EXTRAM_WRITE();
-		EXTRAM_READ(); 
+		//EXTRAM_WRITE();
+		//EXTRAM_READ(); 
 		 SET_DATA_MODE_IN;
 		}
 		break;
@@ -281,8 +288,8 @@ void __not_in_flash_func(core1_main()) {
 					SET_DATA_MODE_OUT;
     				gpio_put_masked(DATA_PIN_MASK,(new_rom_table[0][addr])<<D0_PIN);	
 				}
-				EXTRAM_WRITE();
-				EXTRAM_READ();  
+				//EXTRAM_WRITE();
+				//EXTRAM_READ();  
 			} 	
 			
 		 SET_DATA_MODE_IN;
@@ -306,8 +313,8 @@ void __not_in_flash_func(core1_main()) {
 					SET_DATA_MODE_OUT;
     				gpio_put_masked(DATA_PIN_MASK,(new_rom_table[bank][addr])<<D0_PIN);
 				}
-				EXTRAM_WRITE();
-				EXTRAM_READ(); 
+				//EXTRAM_WRITE();
+				//EXTRAM_READ(); 
 			} 
 		 	SET_DATA_MODE_IN;
 		  //}
@@ -852,8 +859,6 @@ void picopac_cart_main()
 		#endif
 		load_newfile(&files[gamechoosen-1], 0);
 		extram[0xff]=0xcc; // request reset 
-		//while (resetnow == 0){}	//Wait 8748 is ready to JMP 0x400
-		// memcpy(rom_table,new_rom_table,1024*32);
 		gamechoosen = 0;
 		// newgame=1;
 	} else {

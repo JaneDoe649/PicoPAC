@@ -10,6 +10,7 @@
 ../../asl-current/p2bin text-engine_bank1.p text-engine_bank1.bin -r 1024-3071
 ../../asl-current/p2bin text-engine_bank0.p text-engine_bank0.bin -r 1024-3071
 cat  text-engine_bank0.bin text-engine_bank1.bin text-engine_bank2.bin text-engine_bank3.bin >text-engine_0123.bin
+cp text-engine_0123.bin ./selectgame.bin
 cp text-engine_0123.bin ../selectgame.bin
 cp text-engine_0123.bin ../../o2em118src/SRC/roms/selectgame.bin
 cd ../../o2em118src/SRC
