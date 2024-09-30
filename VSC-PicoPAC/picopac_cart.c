@@ -218,8 +218,8 @@ void __not_in_flash_func(core1_main()) {
 				   extram[addr & 0xff]=((pins & DATA_PIN_MASK)>>D0_PIN);	
 				   /*extram[0xff] values :
 				   		0xaa : item selected in menu
-						0xbb : item is folder, ask 8748 refresh page
-						0xcc : pi ask 8748 to JMP 0x400
+						0xbb : item is folder, pi ask 8748 refresh page
+						0xcc : item is game, pi ask 8748 to JMP 0x400
 						0xdd : 8748 tells next instruction is JMP 0x400
 				   */
 				   if (extram[0xff]==0xaa) {
@@ -230,8 +230,8 @@ void __not_in_flash_func(core1_main()) {
 			} 
 			// override extram read at 0xff
 			if((gpio_get(CS_PIN) == 0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==1)) {
-				// only when refresh page is needed
-				if ((extram[addr & 0xff] == 0xbb) && ((addr & 0xff)) == 0xff) {
+				// only when refresh page is needed or reset request
+				if (((extram[addr & 0xff] == 0xbb) || (extram[addr & 0xff] == 0xcc)) && ((addr & 0xff) == 0xff)) {
 					SET_DATA_MODE_OUT;
 					gpio_put_masked(DATA_PIN_MASK,(extram[addr & 0xff])<<D0_PIN);
 				}
