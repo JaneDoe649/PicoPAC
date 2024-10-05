@@ -16,6 +16,7 @@
 */
 
 //#define debugging
+//#define optimize
 #define maxfiles 200
 
 #include <stdio.h>
@@ -41,6 +42,12 @@
 
 #include "translate.c"
 #include "picopac_cart.h"
+
+#ifdef optimize
+#include "pico/time.h"
+uint32_t msSinceBoot1;
+uint32_t msSinceBoot2;
+#endif
 // Pico pin usage definitions
 
 #define A0_PIN    0
@@ -126,10 +133,12 @@
 // Once done, we can access this at XIP_BASE + 256k.
 
 
-char RBLo,RBHi;
+// char RBLo,RBHi;
 #define BINLENGTH  1024*128+1
-unsigned char rom_table[8][4096];
-unsigned char new_rom_table[8][4096];
+unsigned char rom_table[2][8][4096];
+volatile int rom_buffer = 0;
+volatile int next_rom_buffer = 1;
+//unsigned char new_rom_table[8][4096];
 unsigned char extROM[1024];
 unsigned char RAM[1024];
 //unsigned char files[256*100] = {0};
@@ -137,14 +146,14 @@ unsigned char RAM[1024];
 // unsigned char nomefiles[32*25] = {0};
 //char curPath[5] = "";
 char path[5];
-int fileda=0,filea=0;
-volatile char cmd=0;
+//int fileda=0,filea=0;
+//volatile char cmd=0;
 char errorBuf[40];
 //bool cmd_executing;
-volatile int bankswitch;
-int bksw=0;
+// volatile int bankswitch;
+//int bksw=0;
 int romsize;
-int lastpos;
+// int lastpos;
 volatile u_int8_t bank_type=1;
 volatile u_int8_t new_bank_type=1;
 volatile char gamechoosen=0;
@@ -208,10 +217,11 @@ void __not_in_flash_func(core1_main()) {
 			bank=3-((gpio_get(P10_PIN)+(gpio_get(P11_PIN)*2)));
 	   		if (gpio_get(PSEN_PIN)==0) {
 				SET_DATA_MODE_OUT;
-    				gpio_put_masked(DATA_PIN_MASK,(rom_table[bank][addr])<<D0_PIN);
-					if ((resetnow == 1) && (rom_table[bank][addr] == 0x00) && (rom_table[bank][addr-1] == 0x04)) { //JMP 00h on bus
+    				gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
+					if ((resetnow == 1) && (rom_table[rom_buffer][bank][addr] == 0x00) && (rom_table[rom_buffer][bank][addr-1] == 0x04)) { //JMP 00h on bus
+						sleep_us(1);	// Wait end of bus cycle. Could be increased to 2 in case of reset issue
 						newgame=1;
-						sleep_us(1);	// Wait end of bus cycle
+						break; //Jdoe not tested
 					}
 			}
 		  	if((gpio_get(CS_PIN)==0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==0)) {
@@ -224,22 +234,22 @@ void __not_in_flash_func(core1_main()) {
 				   */
 				   if (extram[0xff]==0xaa) {
 			         gamechoosen=extram[0xfe];
-				   } else if (extram[0xff]==0xdd) { //Jmp 0400h is next instruction
+				   } /*else if (extram[0xff]==0xdd) { //Jmp 0400h is next instruction
 						resetnow=1;
-				   }
+				   }*/
 			} 
 			// override extram read at 0xff
-			if((gpio_get(CS_PIN) == 0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==1)) {
-				// only when refresh page is needed or reset request
-				if (((extram[addr & 0xff] == 0xbb) || (extram[addr & 0xff] == 0xcc)) && ((addr & 0xff) == 0xff)) {
-					SET_DATA_MODE_OUT;
-					gpio_put_masked(DATA_PIN_MASK,(extram[addr & 0xff])<<D0_PIN);
-				}
-			}
+			///if((gpio_get(CS_PIN) == 0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==1)) {
+			///	// only when refresh page is needed or reset request
+			///	if (((extram[addr & 0xff] == 0xcc)) && ((addr & 0xff) == 0xff)) {
+			///		SET_DATA_MODE_OUT;
+			///		gpio_put_masked(DATA_PIN_MASK,(extram[addr & 0xff])<<D0_PIN);
+			///	}
+			///}
 			
 		 SET_DATA_MODE_IN;
 		}
-
+	rom_buffer = next_rom_buffer;
 	SET_DATA_MODE_IN;
 	
 	switch (new_bank_type) {
@@ -254,10 +264,8 @@ void __not_in_flash_func(core1_main()) {
 			}
 			if (gpio_get(PSEN_PIN)==0) {
 				SET_DATA_MODE_OUT;
-    			gpio_put_masked(DATA_PIN_MASK,(new_rom_table[bank][addr])<<D0_PIN);
+    			gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
 			}
-			//EXTRAM_WRITE();
-			//EXTRAM_READ(); 
 		 SET_DATA_MODE_IN;
 		}
 		break;
@@ -269,10 +277,8 @@ void __not_in_flash_func(core1_main()) {
 	   	  	
 			if (gpio_get(PSEN_PIN)==0) {
 				SET_DATA_MODE_OUT;
-    			gpio_put_masked(DATA_PIN_MASK,(new_rom_table[bank][addr])<<D0_PIN); 
+    			gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN); 
 		  }
-		//EXTRAM_WRITE();
-		//EXTRAM_READ(); 
 		 SET_DATA_MODE_IN;
 		}
 		break;
@@ -286,10 +292,8 @@ void __not_in_flash_func(core1_main()) {
 			} else {
 				if (gpio_get(PSEN_PIN)==0) {
 					SET_DATA_MODE_OUT;
-    				gpio_put_masked(DATA_PIN_MASK,(new_rom_table[0][addr])<<D0_PIN);	
+    				gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][0][addr])<<D0_PIN);	
 				}
-				//EXTRAM_WRITE();
-				//EXTRAM_READ();  
 			} 	
 			
 		 SET_DATA_MODE_IN;
@@ -311,10 +315,8 @@ void __not_in_flash_func(core1_main()) {
 			}
 				if (gpio_get(PSEN_PIN)==0) {
 					SET_DATA_MODE_OUT;
-    				gpio_put_masked(DATA_PIN_MASK,(new_rom_table[bank][addr])<<D0_PIN);
+    				gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
 				}
-				//EXTRAM_WRITE();
-				//EXTRAM_READ(); 
 			} 
 		 	SET_DATA_MODE_IN;
 		  //}
@@ -668,59 +670,60 @@ cleanup:
 
 /* load file in  ROM (rom_table) */
 
-int load_file(char *filename) {
-	FATFS FatFs;
-	UINT br = 0;
-	UINT bw = 0;
-    int l,nb;
+// int load_file(char *filename) {
+// 	FATFS FatFs;
+// 	UINT br = 0;
+// 	UINT bw = 0;
+//     int l,nb;
 
-	memset(rom_table,0,1024*8*4);
+// 	memset(rom_table[rom_buffer],0,1024*8*4);
 	
-	l=filesize(filename);
+// 	l=filesize(filename);
 	
-	if (f_mount(&FatFs, "", 1) != FR_OK) {
-		error(1);
-	}
+// 	if (f_mount(&FatFs, "", 1) != FR_OK) {
+// 		error(1);
+// 	}
 
-	nb = l/2048;   // nb = number of banks, l=file size)
+// 	nb = l/2048;   // nb = number of banks, l=file size)
 	
-	bank_type=0;
-	if (nb==4) bank_type=1;
-	if (nb>4) bank_type=3;
+// 	bank_type=0;
+// 	if (nb==4) bank_type=1;
+// 	if (nb>4) bank_type=3;
 	
-	FIL fil;
-	if (f_open(&fil, filename, FA_READ) != FR_OK) {
-		error(6);
-	}
+// 	FIL fil;
+// 	if (f_open(&fil, filename, FA_READ) != FR_OK) {
+// 		error(6);
+// 	}
 	
 
-	// read the file to flash RAM
+// 	// read the file to flash RAM
 	
-		for (int i = nb - 1; i >= 0; i--) {
-        	if (f_read(&fil,&rom_table[i][1024], 2048, &br)!= FR_OK) {
-				error(9);
-			}
-			// update rom with files on SD
-			updaterom(&rom_table[i][1024], i);
-			#ifdef debugging
-				debugFS(&rom_table[i][1024]);
-			#endif
-        	memcpy(&rom_table[i][3072], &rom_table[i][2048], 1024); /* simulate missing A10 */
-    	}
-            // mirror ROM in higher banks
-    if (nb<2) memcpy(&rom_table[1],&rom_table[0],4096);
-    if (nb<4) memcpy(&rom_table[2],&rom_table[0],8192);
+// 		for (int i = nb - 1; i >= 0; i--) {
+//         	if (f_read(&fil,&rom_table[rom_buffer][i][1024], 2048, &br)!= FR_OK) {
+// 				error(9);
+// 			}
+// 			// update rom with files on SD
+// 			updaterom(&rom_table[rom_buffer][i][1024], i);
+// 			#ifdef debugging
+// 				debugFS(&[rom_buffer][i][1024]);
+// 			#endif
+//         	memcpy(&rom_table[rom_buffer][i][3072], &rom_table[rom_buffer][i][2048], 1024); /* simulate missing A10 */
+//     	}
+//             // mirror ROM in higher banks
+//     if (nb<2) memcpy(&rom_table[rom_buffer][1],&rom_table[rom_buffer][0],4096);
+//     if (nb<4) memcpy(&rom_table[rom_buffer][2],&rom_table[rom_buffer][0],8192);
 
-closefile:
-	f_close(&fil);
+// closefile:
+// 	f_close(&fil);
 	    
-cleanup:
-	f_mount(0, "", 1);
+// cleanup:
+// 	f_mount(0, "", 1);
 
-	return br;
-}
+// 	return br;
+// }
 
-int load_newfile(DIR_ENTRY *entry, char updatemenu) {
+
+int load_newfile(DIR_ENTRY *entry, char updatemenu, int local_rom_buffer) {
 	FATFS FatFs;
 	UINT br = 0;
 	UINT bw = 0;
@@ -735,7 +738,7 @@ int load_newfile(DIR_ENTRY *entry, char updatemenu) {
 	}
 	strcat(fullpath, entry->long_filename);
 
-	memset(new_rom_table,0,1024*8*4);
+	memset(rom_table[local_rom_buffer],0,1024*8*4);
 	
 	l=filesize(fullpath); //fullpath
 	
@@ -755,7 +758,7 @@ int load_newfile(DIR_ENTRY *entry, char updatemenu) {
 			if (f_read(&fil, &extROM[0], 1024, &br) != FR_OK) {
               // error(5);
             }
-            if (f_read(&fil, &new_rom_table[0][1024], 3072, &br) != FR_OK) {
+            if (f_read(&fil, &rom_table[local_rom_buffer][0][1024], 3072, &br) != FR_OK) {
                // error(7);
             } 	
 	} else
@@ -766,23 +769,25 @@ int load_newfile(DIR_ENTRY *entry, char updatemenu) {
 		if (nb>4) new_bank_type=3;
 
 		for (int i = nb - 1; i >= 0; i--) {
-        	if (f_read(&fil,&new_rom_table[i][1024], 2048, &br)!= FR_OK) {
+        	if (f_read(&fil,&rom_table[local_rom_buffer][i][1024], 2048, &br)!= FR_OK) {
 				error(7);
 			}
 			if (updatemenu != 0) {
 				// update rom with files on SD
-				updaterom(&new_rom_table[i][1024], i);
+				updaterom(&rom_table[local_rom_buffer][i][1024], i);
 			}
 			#ifdef debugging
-				debugFS(&new_rom_table[i][1024]);
+			#ifndef optimize
+				debugFS(&rom_table[local_rom_buffer][i][1024]);
+			#endif
 			#endif
 
-        	memcpy(&new_rom_table[i][3072], &new_rom_table[i][2048], 1024); /* simulate missing A10 */
+        	memcpy(&rom_table[local_rom_buffer][i][3072], &rom_table[local_rom_buffer][i][2048], 1024); /* simulate missing A10 */
     	}
 	}
 	    // mirror ROM in higher banks
-    if (nb<2) memcpy(&new_rom_table[1],&new_rom_table[0],4096);
-    if (nb<4) memcpy(&new_rom_table[2],&new_rom_table[0],8192);
+    if (nb<2) memcpy(&rom_table[local_rom_buffer][1],&rom_table[local_rom_buffer][0],4096);
+    if (nb<4) memcpy(&rom_table[local_rom_buffer][2],&rom_table[local_rom_buffer][0],8192);
    	
 	
 closefile:
@@ -808,15 +813,14 @@ void picopac_cart_main()
 	int ret=0;
 
     int l, nb;
-   
+   DIR_ENTRY localentry[1];
 
     gpio_init_mask(ALL_GPIO_MASK);
   
     
     stdio_init_all();   // for serial output, via printf()
-    printf("Start\n");
+	printf("Start\n");
 
- 
   sleep_ms(400);
 
   multicore_launch_core1(core1_main);
@@ -825,8 +829,24 @@ void picopac_cart_main()
    // get files on SD
    read_directory("/");
 
+   //load_file("/selectgame.bin");
+	localentry->isDir=0;
+	strcpy(localentry->full_path, "/");
+	strcpy(localentry->long_filename, "selectgame.bin");
+	rom_buffer = 0;
+	next_rom_buffer = 1;
+	#ifdef debugging
+		printf("load_newfile(%s, 1, %i) - rom_buffer : %i\n", localentry->long_filename, rom_buffer, rom_buffer);
+	#endif
+	#ifdef optimize
+	msSinceBoot1 = to_ms_since_boot(get_absolute_time());
+	#endif
+	load_newfile(localentry, 1, rom_buffer);	// Load selectgame in first rom buffer
 
-   load_file("/selectgame.bin");
+	#ifdef optimize
+	msSinceBoot2 = to_ms_since_boot(get_absolute_time());
+	printf("load time (ms)%d\n", msSinceBoot2-msSinceBoot1);
+	#endif
 
    #ifdef debugging
 	gamechoosen = 2;
@@ -850,35 +870,50 @@ void picopac_cart_main()
 	    
     if (gamechoosen>=1) {
 
-	sleep_ms(1400);
+	// sleep_ms(1400);
 
-	//load_newfile(gamelist[gamechoosen-1]);
 	if (!files[gamechoosen-1].isDir) {
+
+		if (rom_buffer == 0)
+			next_rom_buffer = 1;
+		else
+			next_rom_buffer = 0;
+
 		#ifdef debugging
-		printf("load_newfile(%s)\n", files[gamechoosen-1].long_filename);
+		printf("load_newfile(%s, 0, %i) - rom_buffer : %i\n", files[gamechoosen-1].long_filename, next_rom_buffer, rom_buffer);
 		#endif
-		load_newfile(&files[gamechoosen-1], 0);
-		extram[0xff]=0xcc; // request reset 
+		load_newfile(&files[gamechoosen-1], 0, next_rom_buffer);
+		// extram[0xff]=0xcc; // request reset 
+		resetnow = 1; // Since now we wait for JMP 0
 		gamechoosen = 0;
-		// newgame=1;
 	} else {
 		#ifdef debugging
 		printf("read_directory(%s)\n", files[gamechoosen-1].long_filename);
 		#endif
 		read_directory(files[gamechoosen-1].long_filename);
 
-		DIR_ENTRY localentry[1]; 
 		localentry->isDir=0;
 		strcpy(localentry->full_path, "/");
 		strcpy(localentry->long_filename, "selectgame.bin");
 
-		load_newfile(localentry, 1);
+		if (rom_buffer == 0)
+			next_rom_buffer = 1;
+		else
+			next_rom_buffer = 0;
+
+		#ifdef debugging
+		printf("load_newfile(%s, 1, %i) - rom_buffer : %i\n", localentry->long_filename, next_rom_buffer, rom_buffer);
+		#endif
+		load_newfile(localentry, 1, next_rom_buffer);
 
 		//reset();
-		memcpy(rom_table,new_rom_table,1024*32);
-
-		extram[0xff]=0xbb; // request menu refresh
+		//memcpy(rom_table[next_rom_buffer],rom_table[next_rom_buffer],1024*32); //Ne fonctionneplus
+		//extram[0xff]=0xbb; // request menu refresh
+		
+		#ifndef debugging //Simulate game selection in debug mode
 		gamechoosen = 0;
+		#endif
+		rom_buffer = next_rom_buffer; // Switch to game buffer
 	}
    }
   }
@@ -910,10 +945,10 @@ void picopac_cart_main()
 			titleoffset = 0;
 			pagescnt = 0;
 	}
-	char title[17];
+	char title[18];
     for (unsigned int page=0; page<pagescnt; page++) {
         for (unsigned int displine=0; displine<8; displine++) {
-            translate(&title[0], files[titleoffset + cpt].long_filename);
+            translate(&title[0], files[titleoffset + cpt].long_filename, files[titleoffset + cpt].isDir);
             memcpy((m + (textpages[memblock][page] - (2048 * (3 - memblock))) + 16 * displine), &title[0],16);
 			//printf("%s %04x %08x %08x\n", &files[titleoffset + cpt].long_filename, titleoffset + cpt, m, (m + (textpages[memblock][page] - (2048 * (3 - memblock))) + 16 * displine));
 			//debugprinttranslated(&title[0]);

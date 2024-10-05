@@ -65,10 +65,13 @@ unsigned char * gettitle(unsigned char* filename) {
     return filename;
 }
 
-void translate(unsigned char *encodedtitle, unsigned char* filename) {
+void translate(unsigned char *encodedtitle, unsigned char* filename, char isDir) {
     char *title = gettitle(filename);
     char v;
-    encodedtitle[0] = 0x0c;    //Title start with space
+    encodedtitle[0] = 0x0c;    // Title start with space
+    if (isDir) {
+        encodedtitle[1] = 0x33; // menu start with ->
+    }
     for (int i=0; i<16; i++) {
         if (i<strlen(title)) {
             v = title[i];
@@ -78,7 +81,11 @@ void translate(unsigned char *encodedtitle, unsigned char* filename) {
         } else {
                 v = ' ';
             }
-        encodedtitle[i+1] = transcode(v);
+        if (!isDir) {
+            encodedtitle[i+1] = transcode(v);
+        } else {
+            encodedtitle[i+2] = transcode(v);
+        }
     }
 }
 
