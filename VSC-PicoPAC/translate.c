@@ -70,7 +70,7 @@ void translate(unsigned char *encodedtitle, unsigned char* filename, char isDir)
     char v;
     encodedtitle[0] = 0x0c;    // Title start with space
     if (isDir) {
-        encodedtitle[1] = 0x33; // menu start with ->
+        encodedtitle[1] = 0x33; // menu start with walking guy
     }
     for (int i=0; i<16; i++) {
         if (i<strlen(title)) {
@@ -89,14 +89,3 @@ void translate(unsigned char *encodedtitle, unsigned char* filename, char isDir)
     }
 }
 
-/* unsigned char* to_uppercase(unsigned char* str) {
-    unsigned char v;
-    for (int i = 0; str[i] != '\0'; i++) {
-        v = str[i];
-        if(v >= 'a' && v <= 'z') {
-                v = v - 32;
-            }
-        str[i] = v;
-    }
-    return str;
-}*/ 

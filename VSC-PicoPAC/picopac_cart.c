@@ -219,38 +219,24 @@ void __not_in_flash_func(core1_main()) {
 				SET_DATA_MODE_OUT;
     				gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
 					if ((resetnow == 1) && (rom_table[rom_buffer][bank][addr] == 0x00) && (rom_table[rom_buffer][bank][addr-1] == 0x04)) { //JMP 00h on bus
-						sleep_us(1);	// Wait end of bus cycle. Could be increased to 2 in case of reset issue
+						//sleep_us(1);	// Wait end of bus cycle. Could be increased to 2 in case of reset issue
 						newgame=1;
+						while (gpio_get(PSEN_PIN)==0) { //Wait end of cycle
+						}
+						SET_DATA_MODE_IN;
 						break; //Jdoe not tested
 					}
 			}
 		  	if((gpio_get(CS_PIN)==0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==0)) {
 				   extram[addr & 0xff]=((pins & DATA_PIN_MASK)>>D0_PIN);	
-				   /*extram[0xff] values :
-				   		0xaa : item selected in menu
-						0xbb : item is folder, pi ask 8748 refresh page
-						0xcc : item is game, pi ask 8748 to JMP 0x400
-						0xdd : 8748 tells next instruction is JMP 0x400
-				   */
 				   if (extram[0xff]==0xaa) {
 			         gamechoosen=extram[0xfe];
-				   } /*else if (extram[0xff]==0xdd) { //Jmp 0400h is next instruction
-						resetnow=1;
-				   }*/
-			} 
-			// override extram read at 0xff
-			///if((gpio_get(CS_PIN) == 0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==1)) {
-			///	// only when refresh page is needed or reset request
-			///	if (((extram[addr & 0xff] == 0xcc)) && ((addr & 0xff) == 0xff)) {
-			///		SET_DATA_MODE_OUT;
-			///		gpio_put_masked(DATA_PIN_MASK,(extram[addr & 0xff])<<D0_PIN);
-			///	}
-			///}
-			
+				   } 
+			} 			
 		 SET_DATA_MODE_IN;
 		}
 	rom_buffer = next_rom_buffer;
-	SET_DATA_MODE_IN;
+	//SET_DATA_MODE_IN;
 	
 	switch (new_bank_type) {
 	  case 0:  // standard 2k / 4k
@@ -371,7 +357,6 @@ void reset() {
 }     
 
 ////////////////////////////////////////////////////////////////////////////////////
-
 typedef struct {
 	char isDir;
 	// char filename[13];
@@ -829,7 +814,6 @@ void picopac_cart_main()
    // get files on SD
    read_directory("/");
 
-   //load_file("/selectgame.bin");
 	localentry->isDir=0;
 	strcpy(localentry->full_path, "/");
 	strcpy(localentry->long_filename, "selectgame.bin");
@@ -850,19 +834,16 @@ void picopac_cart_main()
 
    #ifdef debugging
 	gamechoosen = 2;
-    // printf("---- %i - %s ----\n", gamechoosen, files[gamechoosen - 1]);
 	printf("Game selected\n");
-    // load_newfile(gamelist[gamechoosen - 1]);
    #endif
   	// overclocking isn't necessary for most functions - but XEGS carts weren't working without it
 	// I guess we might as well have it on all the time.
     #ifndef debugging
 	printf("clock : 27000\n");
 	set_sys_clock_khz(270000, true);
+	//set_sys_clock_khz(170000, true);
 	#endif
-    //set_sys_clock_khz(170000, true);
-
-
+    
   memset(extram,0,0xff);
    
   // Initial conditions 
@@ -883,7 +864,6 @@ void picopac_cart_main()
 		printf("load_newfile(%s, 0, %i) - rom_buffer : %i\n", files[gamechoosen-1].long_filename, next_rom_buffer, rom_buffer);
 		#endif
 		load_newfile(&files[gamechoosen-1], 0, next_rom_buffer);
-		// extram[0xff]=0xcc; // request reset 
 		resetnow = 1; // Since now we wait for JMP 0
 		gamechoosen = 0;
 	} else {
@@ -905,10 +885,6 @@ void picopac_cart_main()
 		printf("load_newfile(%s, 1, %i) - rom_buffer : %i\n", localentry->long_filename, next_rom_buffer, rom_buffer);
 		#endif
 		load_newfile(localentry, 1, next_rom_buffer);
-
-		//reset();
-		//memcpy(rom_table[next_rom_buffer],rom_table[next_rom_buffer],1024*32); //Ne fonctionneplus
-		//extram[0xff]=0xbb; // request menu refresh
 		
 		#ifndef debugging //Simulate game selection in debug mode
 		gamechoosen = 0;

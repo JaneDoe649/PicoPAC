@@ -4,6 +4,9 @@
 ; 30 = temp exram pointer
 ; 31 = PAL/NTSC
 ; 32-35 = line colors
+; BIOS
+; 00-01f
+; 3d-3f
 
 ; only alterable during assemble-time: y0, gridfill
 ; alterable during runtime: x0, backcol
@@ -12,11 +15,11 @@
 
 	include	"g7000.h"
 	
-iram_itemtype equ 035h
-iram_itemselected equ 034h	
-iram_disp_type equ 031h
+iram_itemtype equ 039h
+iram_itemselected equ 038h	
 iram_line_selected equ 37h
 iram_mempage equ 36h
+iram_disp_type equ 031h
 iram_timer equ 78h
 maxpages equ 24
 
@@ -70,6 +73,7 @@ start
 	mov @r0,#0
 	mov r0,#iram_timer
 	mov @r0,#0
+
 	
 
 
@@ -128,9 +132,6 @@ mainloop
 	jnz cpu_reset ;item is file
 	call extramenable
 	clr a
-	;mov r1, #0feh
-	;movx @r1, a ; clear gameselected at $fe
-	;inc r1
 	mov r1, #0ffh
 	movx @r1, a ; clear command 0xaa at $ff
 	mov r1, #iram_mempage
@@ -146,10 +147,6 @@ cpu_reset
 	call init	; init odyssey
 	;;;sel rb0
 	;;call extramenable
-	
-	;;mov r1, #0ffh
-	;;mov a,#0ddh ; reset is coming
-	;;movx @r1,a
 
 	;; call vdcenable
 
@@ -483,12 +480,6 @@ calcchar
 	rl a
 	rl a
 	mov r5,a
-;	mov a,r4
-;	rr a
-;	rr a
-;	cpl a
-;	inc a
-;	add a,r5
 	ret
 
 clearline
@@ -521,18 +512,6 @@ putchar
 	call calcchar
 	movx @r1,a
 	ret
-
-;readchar
-;;	call calcY
-;;	mov a,r4
-;;	rr a
-;;	rr a
-;;	mov r4,a
-;	movx a,@r1
-;;	add a,r4
-;	rr a
-;	rr a
-;	ret
 
 calcY
 	mov a,r1
@@ -636,15 +615,6 @@ chgbkcolor
 joystick_ctrl
 ; --> insert code for main loop
 	call extramenable
-;	mov a,#iram_line_selected
-;	rl a
-;	rl a
-;	rl a
-;	rl a
-
-;	mov r1,a
-;	mov a,#0d8h
-;	movx @r1,a
 	
 	mov r0,#iram_timer
 	mov a,@r0
@@ -757,23 +727,9 @@ ends1
 	djnz r3,s1
 	ret
 
-;get_maxfiles
-;	mov a,#maxfiles & 0ffh
-;	movp a,@a
-;	ret
-;maxfiles
-;	db 25*8
-
 get_maxpages
 	mov a,#maxpages
 	ret
-
-;get_maxpages
-;	mov a,#maxpages & 0ffh
-;	movp a,@a
-;	ret
-;maxpages
-;	db 24
 
 sound	
 	mov     a,#tune_keyclick
@@ -885,11 +841,6 @@ clr_text
 	call    playsound	
 
 	call extramenable
-	;/mov r1,#0ffh
-	;mov a,#254 ;;;;;;JDoe
-	;/mov a,#00 ;;;;;;JDoe
-	;/movx @r1,a
-	
 	ret
 	
 videopac
@@ -944,8 +895,6 @@ sdcart
 	call	printchar
 	mov	r5,#14h		; T
 	call	printchar
-
-
 	ret
 	
 ejex
@@ -976,6 +925,7 @@ right
 	mov r1,#iram_line_selected
 	jmp page_up
 	;;;;;;ret
+
 
 
 
@@ -1028,7 +978,6 @@ intpage0
 pagedata0:
 	db 00Ch, 006h, 000h, 00Ch, 00Fh, 00Eh, 015h, 019h 
 	db 00Ch, 028h, 00Ch, 014h, 013h, 020h, 02Dh, 019h 
-	;db 00Ch, 025h, 013h, 028h, 001h, 006h, 027h, 025h
 	db 00Ch, 033h, 013h, 028h, 001h, 006h, 027h, 025h  
 	db 016h, 02Dh, 00Ch, 00Ch, 00Ch, 00Ch, 00Ch, 00Ch 
 	db 00Ch, 033h, 013h, 028h, 001h, 007h, 027h, 025h 
