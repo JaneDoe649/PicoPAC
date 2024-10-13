@@ -1,11 +1,14 @@
 # PicoPAC
 **Thanks to Aotta and the other contributors for this wonderful work that brings our old consoles back to life!**
 
-**NOTE** FORK WORK IN PROGRESS (More test are needed):
+**NOTE** FORK WORK IN PROGRESS :
 - Navigating the SD card tree (limited to one sub-level and 5 chars directory names) from the menu successfully tested on the C52;
-- Override extram readings at 0xff to request menu refresh;
 - For ROMs referenced in MAME, the name of the game is displayed in the menu;
 - Resetting after loading the game is tricky but seems to work (at least on my C52).
+
+**TODO (branch dev_parsefolder)**
+- Use GPIO28 to trigger menu reload
+- Clean powerup (if possible, 8048 seems to boot faster that pi pico)
 
 
 Flashcart for Videopac / Odyssey 2 based on Wilco2009 Videopac-microSD card project

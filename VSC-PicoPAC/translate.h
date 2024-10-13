@@ -2,7 +2,7 @@
 #define __TRANSLATE_H__
 char transcode(char c);
 unsigned char * gettitle(unsigned char* filename);
-void translate(unsigned char *encodedtitle, unsigned char* filename);
+void translate(unsigned char *encodedtitle, unsigned char* filename, char isDir);
 // unsigned char* to_uppercase(unsigned char* str);
 
 unsigned int textpages[4][7] = {    //block, pages
