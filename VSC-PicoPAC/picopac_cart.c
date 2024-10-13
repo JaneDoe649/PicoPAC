@@ -32,7 +32,7 @@
 #include "hardware/sync.h"
 
 
-//#include "gamelist.h"
+#include "selectgame.h"
 
 #include "tusb.h"
 #include "ff.h"
@@ -48,80 +48,7 @@
 uint32_t msSinceBoot1;
 uint32_t msSinceBoot2;
 #endif
-// Pico pin usage definitions
 
-#define A0_PIN    0
-#define A1_PIN    1
-#define A2_PIN    2
-#define A3_PIN    3
-#define A4_PIN    4
-#define A5_PIN    5
-#define A6_PIN    6
-#define A7_PIN    7
-#define A8_PIN    8
-#define A9_PIN    9
-#define A10_PIN  10
-#define A11_PIN  11
-#define P11_PIN  12
-#define P10_PIN  13
-#define D0_PIN   14
-#define D1_PIN   15
-#define D2_PIN   16
-#define D3_PIN   17
-#define D4_PIN   18
-#define D5_PIN   19
-#define D6_PIN   20
-#define D7_PIN   21
-#define PSEN_PIN 22
-#define WR_PIN 23
-#define CS_PIN 24   // P14
-#define LED_PIN  25 
-#define NOTCS_PIN  26 
-#define TD_PIN  27 
-
-// Pico pin usage masks
-#define A0_PIN_MASK     0x00000001L //gpio 0
-#define A1_PIN_MASK     0x00000002L
-#define A2_PIN_MASK     0x00000004L
-#define A3_PIN_MASK     0x00000008L
-#define A4_PIN_MASK     0x00000010L
-#define A5_PIN_MASK     0x00000020L
-#define A6_PIN_MASK     0x00000040L
-#define A7_PIN_MASK     0x00000080L
-#define A8_PIN_MASK     0x00000100L
-#define A9_PIN_MASK     0x00000200L
-#define A10_PIN_MASK    0x00000400L
-#define A11_PIN_MASK    0x00000800L
-#define P11_PIN_MASK    0x00001000L  // P11 high bank select
-#define P10_PIN_MASK    0x00002000L  // P10 low bank select
-#define D0_PIN_MASK     0x00004000L //gpio 14
-#define D1_PIN_MASK     0x00008000L
-#define D2_PIN_MASK     0x00010000L
-#define D3_PIN_MASK     0x00020000L
-#define D4_PIN_MASK     0x00040000L
-#define D5_PIN_MASK     0x00080000L  // gpio 19
-#define D6_PIN_MASK     0x00100000L
-#define D7_PIN_MASK     0x00200000L
-#define PSEN_PIN_MASK   0x00400000L //gpio 22
-#define WR_PIN_MASK     0x00800000L //gpio 23  
-#define CS_PIN_MASK     0x01000000L //gpio 24   - P14  
-#define LED_PIN_MASK    0x02000000L //gpio 25   
-#define NOTCS_PIN_MASK  0x04000000L //gpio 26  
-#define TD_PIN_MASK     0x08000000L //gpio 27 
-
-// Aggregate Pico pin usage masks
-#define ALL_GPIO_MASK  	0x0FFFFFFFL
-#define BUS_PIN_MASK    0x00003FFFL
-#define BANK_PIN_MASK   0x00003000L
-#define DATA_PIN_MASK   0x003FC000L
-#define FLAG_MASK       0x0FC00000L
-#define ALWAYS_IN_MASK  (BUS_PIN_MASK | FLAG_MASK)
-#define ALWAYS_OUT_MASK (DATA_PIN_MASK )
-
-#define SET_DATA_MODE_OUT   gpio_set_dir_out_masked(DATA_PIN_MASK)
-#define SET_DATA_MODE_IN    gpio_set_dir_in_masked(DATA_PIN_MASK)
-#define SET_LED_ON    	gpio_init(PICO_DEFAULT_LED_PIN);(PICO_DEFAULT_LED_PIN,GPIO_OUT);gpio_put(PICO_DEFAULT_LED_PIN,true);
-#define SET_LED_OFF    	gpio_init(PICO_DEFAULT_LED_PIN);gpio_set_dir(PICO_DEFAULT_LED_PIN,GPIO_OUT);gpio_put(PICO_DEFAULT_LED_PIN,false);
 
  void picopac_cart_main();
  void updaterom(unsigned char *m, int memblock);
@@ -133,32 +60,22 @@ uint32_t msSinceBoot2;
 // Once done, we can access this at XIP_BASE + 256k.
 
 
-// char RBLo,RBHi;
-#define BINLENGTH  1024*128+1
-unsigned char rom_table[2][8][4096];
+//#define BINLENGTH  1024*128+1
+unsigned char __attribute__((aligned(4))) rom_table[2][8][4096];
 volatile int rom_buffer = 0;
 volatile int next_rom_buffer = 1;
-//unsigned char new_rom_table[8][4096];
 unsigned char extROM[1024];
 unsigned char RAM[1024];
-//unsigned char files[256*100] = {0};
 
-// unsigned char nomefiles[32*25] = {0};
-//char curPath[5] = "";
 char path[5];
-//int fileda=0,filea=0;
-//volatile char cmd=0;
 char errorBuf[40];
-//bool cmd_executing;
-// volatile int bankswitch;
-//int bksw=0;
 int romsize;
-// int lastpos;
 volatile u_int8_t bank_type=1;
 volatile u_int8_t new_bank_type=1;
 volatile char gamechoosen=0;
-volatile char newgame=0;
+//volatile char newgame=0;
 volatile char resetnow=0;
+volatile char menu_loaded=0;
 char extram[0xff];
 
 
@@ -203,114 +120,160 @@ void __not_in_flash_func(core1_main()) {
    
     //gpio_set_dir_in_masked(ALWAYS_IN_MASK);
 
-   newgame=0;
-   gamechoosen=0;
+	while(1) {
+	//newgame=0;
+	gamechoosen=0;
+	resetnow=0;
 
-   resetnow=0;
-
-    // Initial conditions
-    //SET_DATA_MODE_IN;
-	
-	while(newgame==0) {
-		 	pins=gpio_get_all();
-	        addr = (pins & 0b0111111111111);  
-			bank=3-((gpio_get(P10_PIN)+(gpio_get(P11_PIN)*2)));
-	   		if (gpio_get(PSEN_PIN)==0) {
-				SET_DATA_MODE_OUT;
-    				gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
-					if ((resetnow == 1) && (rom_table[rom_buffer][bank][addr] == 0x00) && (rom_table[rom_buffer][bank][addr-1] == 0x04)) { //JMP 00h on bus
-						//sleep_us(1);	// Wait end of bus cycle. Could be increased to 2 in case of reset issue
-						newgame=1;
-						while (gpio_get(PSEN_PIN)==0) { //Wait end of cycle
+		// Initial conditions
+		//SET_DATA_MODE_IN;
+		#ifdef optimize
+		uint64_t bt = to_us_since_boot(get_absolute_time());
+		printf("Boot time : %" PRIu64 " - Ready to play\n", bt);
+		#endif
+		while(1) {
+				pins=gpio_get_all();
+				addr = (pins & 0b0111111111111);  
+				bank=3-((gpio_get(P10_PIN)+(gpio_get(P11_PIN)*2)));
+				if (gpio_get(PSEN_PIN)==0) {
+					SET_DATA_MODE_OUT;
+						gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
+						if ((resetnow == 1) && (rom_table[rom_buffer][bank][addr] == 0x00) && (rom_table[rom_buffer][bank][addr-1] == 0x04)) { //JMP 00h on bus
+							//newgame=1;
+							while (gpio_get(PSEN_PIN)==0) { //Wait end of cycle
+							}
+							SET_DATA_MODE_IN;
+							break;
 						}
-						SET_DATA_MODE_IN;
-						break; //Jdoe not tested
+						if (restart(pins))
+							break; 
+				}
+				if((gpio_get(CS_PIN)==0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==0)) {
+					extram[addr & 0xff]=((pins & DATA_PIN_MASK)>>D0_PIN);	
+					if (extram[0xff]==0xaa) {
+						gamechoosen=extram[0xfe];
+					} 
+				}		
+			SET_DATA_MODE_IN;
+			}
+		rom_buffer = next_rom_buffer;
+		//SET_DATA_MODE_IN;
+		
+		switch (new_bank_type) {
+		case 0:  // standard 2k / 4k
+			while(1) {	
+				pins=gpio_get_all();
+				addr = (pins & 0b0111111111111);  
+				if (gpio_get(P10_PIN)) {
+					bank=0;
+				} else {
+					bank=1;
+				}
+				if (gpio_get(PSEN_PIN)==0) {
+					SET_DATA_MODE_OUT;
+					gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
+				}
+				if (restart(pins))
+					break;
+			SET_DATA_MODE_IN;
+			}
+			break;
+		case 1:  // standard 8k
+			while(1) {	
+				pins=gpio_get_all();
+				addr = (pins & 0b0111111111111);  
+				bank=3-((gpio_get(P10_PIN)+(gpio_get(P11_PIN)*2)));
+				
+				if (gpio_get(PSEN_PIN)==0) {
+					SET_DATA_MODE_OUT;
+					gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN); 
+				}
+				if (restart(pins))
+						break;
+				SET_DATA_MODE_IN;
+			}
+			break;
+		case 2:   // XROM
+			while(1) {	
+				pins=gpio_get_all();
+				addr = (pins & 0b0111111111111); // for all cart but xrom
+				if ((gpio_get(P11_PIN)==1 && gpio_get(NOTCS_PIN)==1)) {
+						SET_DATA_MODE_OUT;
+						gpio_put_masked(DATA_PIN_MASK,(extROM[addr&0x3ff])<<D0_PIN);
+				} else {
+					if (gpio_get(PSEN_PIN)==0) {
+						SET_DATA_MODE_OUT;
+						gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][0][addr])<<D0_PIN);	
 					}
-			}
-		  	if((gpio_get(CS_PIN)==0) && (gpio_get(NOTCS_PIN) == 1) && (gpio_get(WR_PIN)==0)) {
-				   extram[addr & 0xff]=((pins & DATA_PIN_MASK)>>D0_PIN);	
-				   if (extram[0xff]==0xaa) {
-			         gamechoosen=extram[0xfe];
-				   } 
-			} 			
-		 SET_DATA_MODE_IN;
-		}
-	rom_buffer = next_rom_buffer;
-	//SET_DATA_MODE_IN;
-	
-	switch (new_bank_type) {
-	  case 0:  // standard 2k / 4k
-        while(1) {	
-	    	pins=gpio_get_all();
-	        addr = (pins & 0b0111111111111);  
-			if (gpio_get(P10_PIN)) {
-				bank=0;
-			} else {
-				bank=1;
-			}
-			if (gpio_get(PSEN_PIN)==0) {
-				SET_DATA_MODE_OUT;
-    			gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
-			}
-		 SET_DATA_MODE_IN;
-		}
-		break;
-	  case 1:  // standard 8k
-        while(1) {	
-	     	pins=gpio_get_all();
-	        addr = (pins & 0b0111111111111);  
-			bank=3-((gpio_get(P10_PIN)+(gpio_get(P11_PIN)*2)));
-	   	  	
-			if (gpio_get(PSEN_PIN)==0) {
-				SET_DATA_MODE_OUT;
-    			gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN); 
-		  }
-		 SET_DATA_MODE_IN;
-		}
-		break;
-	  case 2:   // XROM
-        while(1) {	
-			pins=gpio_get_all();
-	        addr = (pins & 0b0111111111111); // for all cart but xrom
-	  		if ((gpio_get(P11_PIN)==1 && gpio_get(NOTCS_PIN)==1)) {
-					SET_DATA_MODE_OUT;
-    				gpio_put_masked(DATA_PIN_MASK,(extROM[addr&0x3ff])<<D0_PIN);
-			} else {
-				if (gpio_get(PSEN_PIN)==0) {
-					SET_DATA_MODE_OUT;
-    				gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][0][addr])<<D0_PIN);	
 				}
-			} 	
-			
-		 SET_DATA_MODE_IN;
-		}
-		break;
-	  case 3:   // 12k/16k
-        while(1) {	
-	    	pins=gpio_get_all();
-	        addr = (pins & 0b0111111111111); // for all cart but xrom
-			if((gpio_get(CS_PIN)==0) && (gpio_get(WR_PIN)==0)) {
-				if ((addr & 0xff)>=0x80) {
-					romlatch=((~(pins & DATA_PIN_MASK)>>D0_PIN)&7);
-				}	
-			} else {
-			if (gpio_get(P10_PIN)==0) {
-				bank=romlatch;
-			} else {
-				bank=0;
+				if (restart(pins))
+					break; 	
+			SET_DATA_MODE_IN;
 			}
-				if (gpio_get(PSEN_PIN)==0) {
-					SET_DATA_MODE_OUT;
-    				gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
+			break;
+		case 3:   // 12k/16k
+			while(1) {	
+				pins=gpio_get_all();
+				addr = (pins & 0b0111111111111); // for all cart but xrom
+				if((gpio_get(CS_PIN)==0) && (gpio_get(WR_PIN)==0)) {
+					if ((addr & 0xff)>=0x80) {
+						romlatch=((~(pins & DATA_PIN_MASK)>>D0_PIN)&7);
+					}	
+				} else {
+				if (gpio_get(P10_PIN)==0) {
+					bank=romlatch;
+				} else {
+					bank=0;
 				}
-			} 
-		 	SET_DATA_MODE_IN;
-		  //}
+					if (gpio_get(PSEN_PIN)==0) {
+						SET_DATA_MODE_OUT;
+						gpio_put_masked(DATA_PIN_MASK,(rom_table[rom_buffer][bank][addr])<<D0_PIN);
+					}
+				}
+				if (restart(pins))
+					break; 
+				SET_DATA_MODE_IN;
+			//}
+			}
+			break;
 		}
-		break;
 	}
 }
+
+bool  __not_in_flash_func(restart)(uint32_t pins) {
+	unsigned char restart_sequence[] = {0x00, 0x00, 0x00, 0x00, // synchronize cpu 
+										0x14, 0xF1, // call init
+										0xc7, 0x53, 0xf8, 0xd7, // reset stack pointer
+										0x04, 0x00}; // jmp 0x00
+	int p = 0;
+	if (pins & RESTART) {
+		menu_loaded = 0; // ask menu loading
+		while (!menu_loaded) {
+				if (gpio_get(PSEN_PIN)==0) {
+				SET_DATA_MODE_OUT;
+				gpio_put_masked(DATA_PIN_MASK,(0x00)<<D0_PIN); // wait until menu is loaded with NOP
+				while (gpio_get(PSEN_PIN)==0) {} //Wait end of cycle
+			}
+			SET_DATA_MODE_IN;
+		}
+		while (p < sizeof(restart_sequence)) {
+			if (gpio_get(PSEN_PIN)==0) {
+				SET_DATA_MODE_OUT;
+				gpio_put_masked(DATA_PIN_MASK,(restart_sequence[p++])<<D0_PIN); // menu is loaded, let's JMP 0x00
+				while (gpio_get(PSEN_PIN)==0) {} //Wait end of cycle
+			}
+			SET_DATA_MODE_IN;
+		}
+		return true;
+	} else {
+		return false;
+	}
+}
+
 #pragma GCC pop_options
+
+
+
 ////////////////////////////////////////////////////////////////////////////////////
 //                     MENU Reset
 ////////////////////////////////////////////////////////////////////////////////////    
@@ -652,62 +615,6 @@ cleanup:
 }
 
 
-
-/* load file in  ROM (rom_table) */
-
-// int load_file(char *filename) {
-// 	FATFS FatFs;
-// 	UINT br = 0;
-// 	UINT bw = 0;
-//     int l,nb;
-
-// 	memset(rom_table[rom_buffer],0,1024*8*4);
-	
-// 	l=filesize(filename);
-	
-// 	if (f_mount(&FatFs, "", 1) != FR_OK) {
-// 		error(1);
-// 	}
-
-// 	nb = l/2048;   // nb = number of banks, l=file size)
-	
-// 	bank_type=0;
-// 	if (nb==4) bank_type=1;
-// 	if (nb>4) bank_type=3;
-	
-// 	FIL fil;
-// 	if (f_open(&fil, filename, FA_READ) != FR_OK) {
-// 		error(6);
-// 	}
-	
-
-// 	// read the file to flash RAM
-	
-// 		for (int i = nb - 1; i >= 0; i--) {
-//         	if (f_read(&fil,&rom_table[rom_buffer][i][1024], 2048, &br)!= FR_OK) {
-// 				error(9);
-// 			}
-// 			// update rom with files on SD
-// 			updaterom(&rom_table[rom_buffer][i][1024], i);
-// 			#ifdef debugging
-// 				debugFS(&[rom_buffer][i][1024]);
-// 			#endif
-//         	memcpy(&rom_table[rom_buffer][i][3072], &rom_table[rom_buffer][i][2048], 1024); /* simulate missing A10 */
-//     	}
-//             // mirror ROM in higher banks
-//     if (nb<2) memcpy(&rom_table[rom_buffer][1],&rom_table[rom_buffer][0],4096);
-//     if (nb<4) memcpy(&rom_table[rom_buffer][2],&rom_table[rom_buffer][0],8192);
-
-// closefile:
-// 	f_close(&fil);
-	    
-// cleanup:
-// 	f_mount(0, "", 1);
-
-// 	return br;
-// }
-
-
 int load_newfile(DIR_ENTRY *entry, char updatemenu, int local_rom_buffer) {
 	FATFS FatFs;
 	UINT br = 0;
@@ -798,56 +705,80 @@ void picopac_cart_main()
 	int ret=0;
 
     int l, nb;
-   DIR_ENTRY localentry[1];
+    DIR_ENTRY localentry[1];
 
     gpio_init_mask(ALL_GPIO_MASK);
-  
     
-    stdio_init_all();   // for serial output, via printf()
-	printf("Start\n");
-
-  sleep_ms(400);
-
-  multicore_launch_core1(core1_main);
-  sleep_ms(200);
-
-   // get files on SD
-   read_directory("/");
-
-	localentry->isDir=0;
-	strcpy(localentry->full_path, "/");
-	strcpy(localentry->long_filename, "selectgame.bin");
-	rom_buffer = 0;
-	next_rom_buffer = 1;
 	#ifdef debugging
-		printf("load_newfile(%s, 1, %i) - rom_buffer : %i\n", localentry->long_filename, rom_buffer, rom_buffer);
+	stdio_init_all();   // for serial output, via printf()
+	printf("Start\n");
 	#endif
-	#ifdef optimize
-	msSinceBoot1 = to_ms_since_boot(get_absolute_time());
-	#endif
-	load_newfile(localentry, 1, rom_buffer);	// Load selectgame in first rom buffer
-
-	#ifdef optimize
-	msSinceBoot2 = to_ms_since_boot(get_absolute_time());
-	printf("load time (ms)%d\n", msSinceBoot2-msSinceBoot1);
-	#endif
-
-   #ifdef debugging
-	gamechoosen = 2;
-	printf("Game selected\n");
-   #endif
-  	// overclocking isn't necessary for most functions - but XEGS carts weren't working without it
+	// overclocking isn't necessary for most functions - but XEGS carts weren't working without it
 	// I guess we might as well have it on all the time.
     #ifndef debugging
-	printf("clock : 27000\n");
+	//printf("clock : 27000\n");
 	set_sys_clock_khz(270000, true);
 	//set_sys_clock_khz(170000, true);
 	#endif
-    
-  memset(extram,0,0xff);
-   
-  // Initial conditions 
-    while (1) {
+  //sleep_ms(400);
+
+  multicore_launch_core1(core1_main);
+  //sleep_ms(200);
+  	menu_loaded = 0;
+  	rom_buffer = 0;
+	memcpy(&rom_table[rom_buffer][0][1024], &selectgame[6144], 2048 );
+	memcpy(&rom_table[rom_buffer][0][3072], &rom_table[rom_buffer][0][2048], 1024);
+	memcpy(&rom_table[rom_buffer][1][1024], &selectgame[4096], 2048 );
+	memcpy(&rom_table[rom_buffer][1][3072], &rom_table[rom_buffer][1][2048], 1024);
+	memcpy(&rom_table[rom_buffer][2][1024], &selectgame[2048], 2048);
+	memcpy(&rom_table[rom_buffer][2][3072], &rom_table[rom_buffer][2][2048], 1024);
+  	memcpy(&rom_table[rom_buffer][3][1024], &selectgame[0], 2048);
+	memcpy(&rom_table[rom_buffer][3][3072], &rom_table[rom_buffer][3][2048], 1024);
+	#ifdef optimize
+	uint64_t bt = to_us_since_boot(get_absolute_time());
+	printf("Boot time : %" PRIu64 " - Pre rom loaded\n", bt);
+	#endif
+
+
+	while (1) {
+		if (!menu_loaded) {
+			if (rom_buffer == 0)
+				next_rom_buffer = 1;
+			else
+				next_rom_buffer = 0;
+
+			// get files on SD
+			read_directory("/");
+
+			localentry->isDir=0;
+			strcpy(localentry->full_path, "/");
+			strcpy(localentry->long_filename, "selectgame.bin");
+			#ifdef debugging
+				printf("load_newfile(%s, 1, %i) - rom_buffer : %i\n", localentry->long_filename, next_rom_buffer, next_rom_buffer);
+			#endif
+			#ifdef optimize
+			msSinceBoot1 = to_ms_since_boot(get_absolute_time());
+			#endif
+			load_newfile(localentry, 1, next_rom_buffer);	// Load selectgame in first rom buffer
+			rom_buffer = next_rom_buffer;
+			menu_loaded=1;
+
+			#ifdef optimize
+			msSinceBoot2 = to_ms_since_boot(get_absolute_time());
+			printf("load time (ms)%d\n", msSinceBoot2-msSinceBoot1);
+			#endif
+
+		#ifdef debugging
+			gamechoosen = 2;
+			printf("Game selected\n");
+		#endif
+
+			
+		memset(extram,0,0xff);
+	}
+	
+	// Initial conditions 
+
 	    
     if (gamechoosen>=1) {
 

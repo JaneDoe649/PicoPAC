@@ -13,6 +13,7 @@ cat  text-engine_bank0.bin text-engine_bank1.bin text-engine_bank2.bin text-engi
 cp text-engine_0123.bin ./selectgame.bin
 cp text-engine_0123.bin ../selectgame.bin
 cp text-engine_0123.bin ../../o2em118src/SRC/roms/selectgame.bin
+python3 ./convert.py
 cd ../../o2em118src/SRC
 ./o2em -c52 selectgame.bin
 

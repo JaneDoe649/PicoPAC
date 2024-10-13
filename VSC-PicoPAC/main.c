@@ -83,19 +83,28 @@ void tud_cdc_rx_cb(uint8_t itf)
 
 int main(void)
 {
-   tusb_init();
-   stdio_init_all();   // for serial output, via printf()
+   //tusb_init();
+   //stdio_init_all();   // for serial output, via printf()
    
-    tud_init(BOARD_TUD_RHPORT);
+    //tud_init(BOARD_TUD_RHPORT);
     gpio_init_mask(FLAG_MASK);
     gpio_set_dir_in_masked(FLAG_MASK);
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN,true);
     gpio_put(PICO_DEFAULT_LED_PIN,true);
    
-    while(1) {          
+   /*stdio_init_all();   // for serial output, via printf()
+   while (1) {
+      uint32_t pins=gpio_get_all();
+			if (pins & RESTART) {
+				printf("RESTART");
+			} else {
+				printf("NO RESTART");
+			} 			
+   }*/
+    //while(1) {          
       
-    while (to_ms_since_boot(get_absolute_time()) < 200)
+    while (to_ms_since_boot(get_absolute_time()) < 100) 
     {
        #ifndef debugging
        if (gpio_get(PSEN_PIN)==1)
@@ -110,6 +119,14 @@ int main(void)
      //  tud_init(BOARD_TUD_RHPORT);
      //  stdio_init_all();   // for serial output, via printf()
        // printf("Start Storage mode\n");
+      stdio_init_all();   // for serial output, via printf()
+      #ifdef debugging
+      printf("Start up\n");  
+      #endif
+
+      // init device stack on configured roothub port
+      tud_init(BOARD_TUD_RHPORT);
+
 
        while (1) {
           tud_task(); // tinyusb device task
@@ -117,7 +134,7 @@ int main(void)
           cdc_task();
        }
     
-    }
+    //}
    return 0;
 }
 
